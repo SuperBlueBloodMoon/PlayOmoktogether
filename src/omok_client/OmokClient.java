@@ -226,7 +226,7 @@ class LoginPanel extends JPanel {
 
         if (userID.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                    "ID, 서버 주소, 포트 번호를 모두 입력해야 합니다.",
+                    "ID를 입력해야 합니다.",
                     "입력 오류",
                     JOptionPane.WARNING_MESSAGE);
             return;
