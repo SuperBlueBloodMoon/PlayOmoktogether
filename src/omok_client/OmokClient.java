@@ -1,11 +1,11 @@
 package omok_client;
 
+import omok_client.model.RoomEntry;
 import omok_client.view.omokBoardView;
 import omok_shared.OmokMsg;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
-import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultStyledDocument;
 
 import java.awt.*;
@@ -62,7 +62,6 @@ public class OmokClient extends JFrame {
         setLocationRelativeTo(null);
         setVisible(true);
 
-        // 시작 화면
         showView(LOGIN_VIEW);
     }
 
@@ -84,8 +83,11 @@ public class OmokClient extends JFrame {
         try {
             socket = new Socket(serverAddress, serverPort);
             out = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            out.flush();
             sendUserID(userID);
-            showView(LOBBY_VIEW);
+            SwingUtilities.invokeLater(() -> {
+                showView(LOBBY_VIEW);
+            });
             startReceiveThread();
 
         } catch (IOException e) {
@@ -112,12 +114,54 @@ public class OmokClient extends JFrame {
                             return;
                         }
                         switch (msg.getMode()) {
-                            case OmokMsg.MODE_LOBBY_STRING :
+                            case OmokMsg.MODE_REFRESH_USER_LIST:
+                                String allUser = msg.getMessage();
+                                String[] userArray = allUser.split(",");
+                                lobbyPanel.updateUserList(userArray);
+                                break;
+                            case OmokMsg.MODE_LOBBY_STRING:
                                 lobbyDisplay(msg.getUserID() + ": " + msg.getMessage());
                                 break;
-                            case  OmokMsg.MODE_LOBBY_IMAGE :
+                            case OmokMsg.MODE_LOBBY_IMAGE:
                                 lobbyDisplay(msg.getUserID() + ": " + msg.getMessage());
                                 //printDisplay(msg.getImage());
+                                break;
+                            case OmokMsg.MODE_ROOM_ENTERED:
+                                SwingUtilities.invokeLater(() -> showView(WAITING_VIEW));
+                                break;
+                            case OmokMsg.MODE_REFRESH_ROOM_LIST:
+                                String allRoom = msg.getMessage();
+                                String[] roomArray = (allRoom == null || allRoom.isEmpty())
+                                        ? new String[0]
+                                        : allRoom.split(",");
+                                lobbyPanel.updateRoomList(roomArray);
+                                break;
+                            case OmokMsg.MODE_ROOM_INFO:
+                                String roomInfoMessage = msg.getMessage();
+                                String[] roomInfo = roomInfoMessage.split(",");
+                                waitingRoomPanel.updateRoomInfo(roomInfo[0], roomInfo[1]);
+                                break;
+                            case OmokMsg.MODE_REFRESH_GAME_USER_LIST:
+                                String allGameUser = msg.getMessage();
+                                String[] gameUserArray = allGameUser.split(",");
+                                waitingRoomPanel.updatePlayerInfo(gameUserArray);
+                                break;
+                            case OmokMsg.MODE_EXIT_ROOM:
+                                String exitRoom = msg.getMessage();
+                                if (exitRoom.equals("SUCCESS")) {
+                                    SwingUtilities.invokeLater(() -> showView(LOBBY_VIEW));
+                                }
+                            case OmokMsg.MODE_WAITING_STRING:
+                                waitingDisplay(msg.getUserID() + ": " + msg.getMessage());
+                                break;
+                            case OmokMsg.MODE_START:
+                                if (msg.getMessage().equals("SUCCESS")) {
+                                    SwingUtilities.invokeLater(() -> showView(GAME_VIEW));
+                                } else {
+                                    SwingUtilities.invokeLater(() -> {
+                                    showMessage(waitingRoomPanel, "방장만이 게임을 시작할 수 있습니다.", "알림", JOptionPane.WARNING_MESSAGE);
+                                    });
+                                }
                                 break;
                         }
                     } catch (IOException | ClassNotFoundException e) {
@@ -151,6 +195,7 @@ public class OmokClient extends JFrame {
         try {
             out.writeObject(msg);
             out.flush();
+            out.reset();
         } catch (IOException e) {
             System.err.println("클라이언트 일반 전송 오류> " + e.getMessage());
         }
@@ -177,18 +222,45 @@ public class OmokClient extends JFrame {
 
     private void lobbyDisplay(String message) {
 
-        int len = lobbyPanel.getChatArea().getDocument().getLength(); // 모든 글자수, 개행 문자 포함
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (lobbyPanel == null || lobbyPanel.getChatArea() == null) return;
 
-        try {
-            lobbyPanel.getDocuments().insertString(len, message + "\n", null); // 가장 끝에 메세지 삽입
-        } catch (BadLocationException e) {
-            e.printStackTrace();
-        }
-        lobbyPanel.getChatArea().setCaretPosition(len); // 커서의 위치를 글자를 추가하기 시작한 위치로 이동
+                int len = lobbyPanel.getChatArea().getDocument().getLength();
+                lobbyPanel.getDocuments().insertString(len, message + "\n", null);
+                lobbyPanel.getChatArea().setCaretPosition(len);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
+
+    private void waitingDisplay(String message) {
+
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (waitingRoomPanel == null || waitingRoomPanel.getChatArea() == null) {
+                    return;
+                }
+                int len = waitingRoomPanel.getChatArea().getDocument().getLength();
+                waitingRoomPanel.getDocuments().insertString(len, message + "\n", null);
+                waitingRoomPanel.getChatArea().setCaretPosition(len);
+
+            } catch (Exception e) {
+                System.err.println("대기실 채팅 출력 오류: " + e.getMessage());
+            }
+        });
+    }
+
     public String getUid() {
         return uid;
     }
+
+   public void showMessage(Component parent, String message, String title, int messageType) {
+       SwingUtilities.invokeLater(() -> {
+           JOptionPane.showMessageDialog(parent, message, title, messageType);
+       });
+   }
 
     public static void main(String[] args) {
         String[] config = loadServerConfig();
@@ -244,6 +316,12 @@ class LobbyPanel extends JPanel {
     private JTextPane chatArea;
     private DefaultStyledDocument document;
 
+    private DefaultListModel<String> userListModel;
+    private JList<String> userList;
+
+    private DefaultListModel<RoomEntry> roomListModel;
+    private JList<RoomEntry> roomList;
+
     public LobbyPanel(OmokClient client) {
         this.client = client;
         setLayout(new BorderLayout(10, 10)); // 전체 레이아웃
@@ -252,12 +330,14 @@ class LobbyPanel extends JPanel {
         JPanel infoPanel = new JPanel(new GridLayout(1, 2, 10, 0));
 
         // 사용자 목록
-        JList<String> userList = new JList<>(new String[]{"강동명", "사용자12", "강강동동명명"});
+        userListModel = new DefaultListModel<>();
+        userList = new JList<>(userListModel);
         JScrollPane userScrollPane = new JScrollPane(userList);
         userScrollPane.setBorder(new TitledBorder("접속자"));
 
         // 방 목록
-        JList<String> roomList = new JList<>(new String[]{"방", "방바방방", "방방비방방"});
+        roomListModel = new DefaultListModel<>();
+        roomList = new JList<>(roomListModel);
         JScrollPane roomScrollPane = new JScrollPane(roomList);
         roomScrollPane.setBorder(new TitledBorder("방 목록"));
 
@@ -270,7 +350,7 @@ class LobbyPanel extends JPanel {
         // 채팅 영역
         document = new DefaultStyledDocument();
         chatArea = new JTextPane(document);
-        chatArea.setEditable(true);
+        chatArea.setEditable(false);
         JScrollPane chatScrollPane = new JScrollPane(chatArea);
         chatScrollPane.setBorder(new TitledBorder("채팅"));
 
@@ -314,8 +394,30 @@ class LobbyPanel extends JPanel {
                    }
                }
            }
+        });
+        joinButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                RoomEntry selectedRoom = roomList.getSelectedValue();
+                if (selectedRoom == null) {
+                    JOptionPane.showMessageDialog(LobbyPanel.this,
+                            "입장할 방을 먼저 선택해주세요.",
+                            "알림",
+                            JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                String roomIdToSend = selectedRoom.getRoomId();
+                try {
+                    client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_JOIN_ROOM, roomIdToSend));
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(LobbyPanel.this,
+                            "방 입장 요청 중 오류 발생.",
+                            "오류",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
        });
-
         controlPanel.add(createButton);
         controlPanel.add(joinButton);
 
@@ -329,9 +431,6 @@ class LobbyPanel extends JPanel {
         add(infoPanel, BorderLayout.NORTH);
         add(chatAndControlPanel, BorderLayout.CENTER);
         add(controlPanel, BorderLayout.SOUTH);
-
-        // 입장하기를 누르면 대기실로 이동 (임시)
-        joinButton.addActionListener(e -> client.showView(OmokClient.WAITING_VIEW));
     }
     public JTextPane getChatArea() {
         return chatArea;
@@ -339,7 +438,25 @@ class LobbyPanel extends JPanel {
     public DefaultStyledDocument getDocuments() {
         return document;
     }
+    public void updateUserList(String[] users) {
+        userListModel.clear();
+        for (String user : users) {
+            userListModel.addElement(user);
+        }
+    }
+    public void updateRoomList(String[] rooms) {
+        roomListModel.clear();
+        if (rooms == null) return;
+        for (String room : rooms) {
+            String[] parts = room.split("\\|");
+            String roomId = parts[0];
+            String title = parts[1];
+            RoomEntry newEntry = new RoomEntry(roomId, title);
+            roomListModel.addElement(newEntry);
+        }
+    }
 }
+
 
 /*
  2. 방 대기 화면 (WaitingRoomPanel)
@@ -349,7 +466,11 @@ class LobbyPanel extends JPanel {
 // 여기서 Player 생성
 class WaitingRoomPanel extends JPanel {
     private OmokClient client;
-
+    private JTextArea roomInfo;
+    private JList<String> playerList;
+    private DefaultListModel playerListModel;
+    private JTextPane chatArea;
+    private DefaultStyledDocument document;
     public WaitingRoomPanel(OmokClient client) {
         this.client = client;
         setLayout(new BorderLayout(10, 10));
@@ -358,13 +479,16 @@ class WaitingRoomPanel extends JPanel {
         JPanel topPanel = new JPanel(new GridLayout(1, 2, 10, 0));
 
         // 방 정보/게임 설정
-        JTextArea roomInfo = new JTextArea("방 제목: Test Room\n방장: 강동명\n규칙: 룰룰룰");
+        roomInfo = new JTextArea();
         roomInfo.setEditable(false);
         JScrollPane roomInfoPane = new JScrollPane(roomInfo);
         roomInfoPane.setBorder(new TitledBorder("방 정보 / 설정"));
 
         // 참가자 목록
-        JList<String> playerList = new JList<>(new String[]{"강동명 (방장/흑)", "강강동동명명 (백)"});
+
+        playerListModel = new DefaultListModel<>();
+        playerList = new JList<>(playerListModel);
+
         JScrollPane playerScrollPane = new JScrollPane(playerList);
         playerScrollPane.setBorder(new TitledBorder("참가자"));
 
@@ -372,7 +496,8 @@ class WaitingRoomPanel extends JPanel {
         topPanel.add(playerScrollPane);
 
         // --- 중간 (채팅) ---
-        JTextArea chatArea = new JTextArea(10, 20);
+        document = new DefaultStyledDocument();
+        chatArea = new JTextPane(document);
         chatArea.setEditable(false);
         JScrollPane chatScrollPane = new JScrollPane(chatArea);
         chatScrollPane.setBorder(new TitledBorder("채팅"));
@@ -402,13 +527,60 @@ class WaitingRoomPanel extends JPanel {
         add(bottomPanel, BorderLayout.SOUTH);
 
         // 게임 시작 버튼 (임시)
-        startButton.addActionListener(e -> {
-            // 시작버튼을 누가 누를지, 같은 처리 필요-> 방장만 시작가능 같은거
-            client.showView(OmokClient.GAME_VIEW);
+        startButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_GAME_START,""));
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
         });
 
-        // 나가기 버튼 (임시)
-        exitButton.addActionListener(e -> client.showView(OmokClient.LOBBY_VIEW));
+        sendButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_WAITING_STRING, chatInput.getText()));
+                chatInput.setText("");
+            }
+        });
+        chatInput.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_WAITING_STRING, chatInput.getText()));
+                chatInput.setText("");
+            }
+        });
+
+        exitButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_EXIT_ROOM, ""));
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+    }
+
+    public JTextPane getChatArea() {
+        return chatArea;
+    }
+    public DefaultStyledDocument getDocuments() {
+        return document;
+    }
+
+    public void updateRoomInfo(String title, String owner) {
+        String text = String.format("방 제목: %s\n방장: %s", title, owner);
+        roomInfo.setText(text);
+    }
+    public void updatePlayerInfo(String[] users) {
+        playerListModel.clear();
+        for (String user : users) {
+            playerListModel.addElement(user);
+        }
     }
 }
 
