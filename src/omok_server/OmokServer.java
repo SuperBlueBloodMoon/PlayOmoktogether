@@ -200,7 +200,6 @@ public class OmokServer extends JFrame {
                         broadcastLobby(new OmokMsg("SERVER", OmokMsg.MODE_REFRESH_USER_LIST, allUserIds));
                         String allRooms = OmokServer.this.getAllRooms();
                         broadcastLobby(new OmokMsg("SERVER", OmokMsg.MODE_REFRESH_ROOM_LIST, allRooms));
-                        continue;
                     } else if (msg.getMode() == OmokMsg.MODE_LOGOUT) {
                         break;
                     } else if (msg.getMode() == OmokMsg.MODE_LOBBY_STRING) {
@@ -327,32 +326,35 @@ public class OmokServer extends JFrame {
         return null;
     }
     public String getAllLUsers() {
-        String allLUsers = "";
+        StringBuilder allLUsers = new StringBuilder();
         synchronized (users) {
             for (ClientHandler user : users) {
                 if (!allLUsers.isEmpty()) {
-                    allLUsers += ",";
+                    allLUsers.append(",");
                 }
-                allLUsers += user.getUid();
+                allLUsers.append(user.getUid());
             }
         }
-        return allLUsers;
+        return allLUsers.toString();
     }
 
     public String getAllRooms() {
-        String allRooms = "";
+        StringBuilder allRooms = new StringBuilder();
         synchronized (rooms) {
+            if (rooms.isEmpty()) {
+                return allRooms.toString();
+            }
             for (GameRoom room : rooms) {
                 if (!allRooms.isEmpty()) {
-                    allRooms += ",";
+                    allRooms.append(",");
                 }
-                allRooms += room.getRoomId();
-                allRooms += "|";
-                allRooms += room.getTitle();
+                allRooms.append(room.getRoomId());
+                allRooms.append("|");
+                allRooms.append(room.getTitle());
 
             }
         }
-        return allRooms;
+        return allRooms.toString();
     }
 
     public static void main(String[] args) {
