@@ -69,14 +69,17 @@ public class OmokClient extends JFrame {
         cardLayout.show(mainPanel, viewName);
         // 프레임 크기 설정
         if (viewName.equals(GAME_VIEW)) {
-            setSize(800, 600);
+            setSize(900, 650); // 오목판 + 사이드 패널을 위해 크기 증가
         } else if(viewName.equals(LOGIN_VIEW)) {
             setSize(400, 100);
-        }
-        else {
+        } else {
             setSize(400, 500); // 로비/대기실
         }
         setLocationRelativeTo(null); // 크기 변경 후 중앙 재배치
+
+        // 레이아웃 강제 갱신
+        revalidate();
+        repaint();
     }
 
     public void connectToServer(String userID) {
@@ -329,7 +332,7 @@ class LobbyPanel extends JPanel {
         // --- 상단 (정보 및 버튼) ---
         JPanel infoPanel = new JPanel(new GridLayout(1, 2, 10, 0));
 
-        // 사용자 목록
+        // 사용자 목록  -> 서버로부터 Vector users 부분에서, 이름만 받아오기
         userListModel = new DefaultListModel<>();
         userList = new JList<>(userListModel);
         JScrollPane userScrollPane = new JScrollPane(userList);
@@ -590,23 +593,40 @@ class WaitingRoomPanel extends JPanel {
 */
 class GamePanel extends JPanel {
     private OmokClient client;
+    private omokBoardView omokBoard;
 
     public GamePanel(OmokClient client) {
         this.client = client;
-        setLayout(new BorderLayout()); // 메인 레이아웃
+        setLayout(new BorderLayout(10, 10));
 
         // --- 오목판 영역 (중앙) ---
-        omokBoardView omokBoard = new omokBoardView();
+        omokBoard = new omokBoardView();
+
         omokBoard.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                int x = e.getX() / omokBoardView.getCellSize();
-                int y = e.getY() / omokBoardView.getCellSize();
-                // 객체 스트림으로 x, y, index, color 값 넘기기
-                // 서버에서 컨트롤(어느 Player가 돌을 둘지)
-                //
+                int margin = omokBoard.getMargin();
+                int cellSize = omokBoardView.getCellSize();
+
+                // 마진 생각해서 좌표 계산
+                int x = (e.getX() - margin + 8 + cellSize / 2) / cellSize;
+                int y = (e.getY() - margin + cellSize / 2) / cellSize;
+
+                // 유효한 범위 확인
+                if (x >= 0 && x < 15 && y >= 0 && y < 15) {
+                    System.out.println("클릭한 교차점: (" + x + ", " + y + ")");
+
+                    // 그 장소가 비어있다면, 돌을 놓기
+                    if (omokBoard.isEmpty(x, y)) {
+                        // 서버로 메시지 전송하는 함수 넣기
+                    }
+                }
             }
         });
+
+        // 오목판을 감싸는 패널
+        JPanel boardPanel = new JPanel(new GridBagLayout());
+        boardPanel.add(omokBoard);
 
         // --- 사이드 패널 (동쪽) ---
         JPanel sidePanel = new JPanel();
@@ -614,37 +634,45 @@ class GamePanel extends JPanel {
         sidePanel.setPreferredSize(new Dimension(250, 0));
 
         // 플레이어 정보
-        JPanel playerInfoPanel = new JPanel(new GridLayout(1, 2));
-        playerInfoPanel.add(new JLabel(" (Player 1)"));
-        playerInfoPanel.add(new JLabel(" (Player 2)"));
+        JPanel playerInfoPanel = new JPanel(new GridLayout(2, 1, 5, 5));
+        playerInfoPanel.add(new JLabel("● 흑돌 (Player 1)", SwingConstants.CENTER));
+        playerInfoPanel.add(new JLabel("○ 백돌 (Player 2)", SwingConstants.CENTER));
         playerInfoPanel.setBorder(new TitledBorder("현재 차례/정보"));
+        playerInfoPanel.setMaximumSize(new Dimension(250, 80));
 
         // 게임 메시지/대화
-        JTextArea messageArea = new JTextArea(10, 20);
+        JTextArea messageArea = new JTextArea(15, 20);
         messageArea.setEditable(false);
-        messageArea.setText("[알림] 게임 시작!\n[알림] 흑돌의 차례입니다.");
+        messageArea.setText("[알림] 게임 시작!\n[알림] 흑돌의 차례입니다.\n");
         JScrollPane messageScrollPane = new JScrollPane(messageArea);
         messageScrollPane.setBorder(new TitledBorder("메시지 / 대화"));
 
         // 제어 버튼
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JPanel controlPanel = new JPanel(new GridLayout(2, 1, 5, 5));
         JButton exitButton = new JButton("나가기");
         JButton surrenderButton = new JButton("기권");
-        controlPanel.add(exitButton);
         controlPanel.add(surrenderButton);
+        controlPanel.add(exitButton);
+        controlPanel.setMaximumSize(new Dimension(250, 80));
 
+        sidePanel.add(Box.createVerticalStrut(10));
         sidePanel.add(playerInfoPanel);
+        sidePanel.add(Box.createVerticalStrut(10));
         sidePanel.add(messageScrollPane);
         sidePanel.add(Box.createVerticalStrut(10));
         sidePanel.add(controlPanel);
+        sidePanel.add(Box.createVerticalGlue());
 
         // --- 최종 조립 ---
-        add(omokBoard, BorderLayout.CENTER);
+        add(boardPanel, BorderLayout.CENTER);
         add(sidePanel, BorderLayout.EAST);
 
-        // 나가기 버튼 (임시)
+        // 나가기 버튼
         exitButton.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "게임을 종료하고 로비로 돌아가시겠습니까?", "게임 종료", JOptionPane.YES_NO_OPTION);
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "게임을 종료하고 로비로 돌아가시겠습니까?",
+                    "게임 종료",
+                    JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 client.showView(OmokClient.LOBBY_VIEW);
             }

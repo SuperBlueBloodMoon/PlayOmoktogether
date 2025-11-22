@@ -191,8 +191,8 @@ public class OmokServer extends JFrame {
                 ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(cs.getInputStream()));
                 String message;
                 OmokMsg msg;
-                while ((msg = (OmokMsg) in.readObject()) != null) {
-                    if (msg.getMode() == OmokMsg.MODE_LOGIN) {
+                while ((msg = (OmokMsg) in.readObject()) != null) {                  // 통신(모드별)
+                    if (msg.getMode() == OmokMsg.MODE_LOGIN) {                       // 로그인 모드
                         uid = msg.getUserID();
                         printDisplay("새 참가자: " + uid);
                         printDisplay("현재 참가자수: " + users.size());
@@ -200,17 +200,17 @@ public class OmokServer extends JFrame {
                         broadcastLobby(new OmokMsg("SERVER", OmokMsg.MODE_REFRESH_USER_LIST, allUserIds));
                         String allRooms = OmokServer.this.getAllRooms();
                         broadcastLobby(new OmokMsg("SERVER", OmokMsg.MODE_REFRESH_ROOM_LIST, allRooms));
-                    } else if (msg.getMode() == OmokMsg.MODE_LOGOUT) {
+                    } else if (msg.getMode() == OmokMsg.MODE_LOGOUT) {              // 로그아웃 모드
                         break;
-                    } else if (msg.getMode() == OmokMsg.MODE_LOBBY_STRING) {
+                    } else if (msg.getMode() == OmokMsg.MODE_LOBBY_STRING) {        // 로비 채팅
                         message = uid + ": " + msg.getMessage();
                         printDisplay(message);
                         broadcastLobby(msg);
-                    } else if (msg.getMode() == OmokMsg.MODE_LOBBY_IMAGE) {
+                    } else if (msg.getMode() == OmokMsg.MODE_LOBBY_IMAGE) {         // 로비 이미지
                         message = uid + ": " + msg.getMessage();
                         printDisplay(message);
                         broadcastLobby(msg);
-                    } else if (msg.getMode() == OmokMsg.MODE_MAKE_ROOM) {
+                    } else if (msg.getMode() == OmokMsg.MODE_MAKE_ROOM) {           // 방 만들기
                         String roomTitle = msg.getMessage();
                         Player owner = new Player(this);
                         this.myPlayer = owner;
@@ -229,7 +229,7 @@ public class OmokServer extends JFrame {
                         send(new OmokMsg("SERVER", OmokMsg.MODE_ROOM_INFO, roomInfo));
                         newRoom.broadcastGameRoom(new OmokMsg("SERVER",OmokMsg.MODE_REFRESH_GAME_USER_LIST, newRoom.getPlayersForClient()));
 
-                    } else if (msg.getMode() == OmokMsg.MODE_JOIN_ROOM) {
+                    } else if (msg.getMode() == OmokMsg.MODE_JOIN_ROOM) {           // 방 참가
                         GameRoom gameRoom = findGameRoom(msg.getMessage());
                         this.myPlayer = new Player(this);
                         this.myRoom = gameRoom;
@@ -238,7 +238,7 @@ public class OmokServer extends JFrame {
                         String roomInfo = gameRoom.getTitle() + ", " + gameRoom.getOwner().getClientHandler().getUid();
                         send(new OmokMsg("SERVER", OmokMsg.MODE_ROOM_INFO, roomInfo));
                         gameRoom.broadcastGameRoom(new OmokMsg("SERVER",OmokMsg.MODE_REFRESH_GAME_USER_LIST, gameRoom.getPlayersForClient()));
-                    } else if (msg.getMode() == OmokMsg.MODE_EXIT_ROOM) {
+                    } else if (msg.getMode() == OmokMsg.MODE_EXIT_ROOM) {           // 방 나가기
                         this.myRoom.exitPlayer(myPlayer);
                         if (this.myRoom.getPlayerCount() > 0) {
                             String roomInfo = this.myRoom.getTitle() + ", " + this.myRoom.getOwner().getClientHandler().getUid();
@@ -250,18 +250,18 @@ public class OmokServer extends JFrame {
                         String allRooms = OmokServer.this.getAllRooms();
                         broadcastLobby(new OmokMsg("SERVER", OmokMsg.MODE_REFRESH_ROOM_LIST, allRooms));
                         send(new OmokMsg("SERVER", OmokMsg.MODE_EXIT_ROOM, "SUCCESS"));
-                    } else if(msg.getMode() == OmokMsg.MODE_WAITING_STRING) {
+                    } else if(msg.getMode() == OmokMsg.MODE_WAITING_STRING) {       // 대기방 채팅
                         message = uid + ": " + msg.getMessage();
                         printDisplay(message);
                         this.myRoom.broadcastGameRoom(msg);
-                    } else if(msg.getMode() == OmokMsg.MODE_GAME_START) {
+                    } else if(msg.getMode() == OmokMsg.MODE_GAME_START) {           // 게임시작 (방장인지 확인)
                         if (this.myRoom.getOwner().equals(myPlayer)) {
                             this.myRoom.startGame();
                             this.myRoom.broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_START, "SUCCESS"));
                         } else {
                             send(new OmokMsg("SERVER", OmokMsg.MODE_START, "FAILED"));
                         }
-                    }
+                    }//여기에 새 모드 추가하기
                 }
                 users.removeElement(this);
                 String allUserIds = OmokServer.this.getAllLUsers();
