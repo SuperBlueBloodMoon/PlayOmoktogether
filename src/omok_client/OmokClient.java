@@ -134,6 +134,7 @@ public class OmokClient extends JFrame {
                             case OmokMsg.MODE_ROOM_ENTERED:
                                 // 알아보니까, SwingUtilities.invokeLater 쓰는 것이 더 안전하다고 함!
                                 // 교착상태, 깜빡임, 크래시 같은 상황을 예방 가능
+                                waitingRoomPanel.clearChat();
                                 SwingUtilities.invokeLater(() -> showView(WAITING_VIEW));
                                 break;
                             case OmokMsg.MODE_REFRESH_ROOM_LIST:
@@ -159,7 +160,6 @@ public class OmokClient extends JFrame {
                                     SwingUtilities.invokeLater(() -> showView(LOBBY_VIEW));
                                 }
                             case OmokMsg.MODE_WAITING_STRING:
-                                waitingDisplay(msg.getUserID() + ": " + msg.getMessage());
                                 if (msg.getMessage().equals("SPECTATOR")) {
                                     // 해당 유저 관전자 설정
                                     SwingUtilities.invokeLater(() -> {
@@ -613,6 +613,10 @@ class WaitingRoomPanel extends JPanel {
                 }
             }
         });
+    }
+    public void clearChat() {
+        document = new DefaultStyledDocument();
+        chatArea.setDocument(document);
     }
 
     public JTextPane getChatArea() {
