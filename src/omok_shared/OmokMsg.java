@@ -1,69 +1,67 @@
 package omok_shared;
 
-import javax.swing.*;
 import java.io.Serializable;
 
 public class OmokMsg implements Serializable {
-    public final static int MODE_LOGIN = 0x1;
-    public final static int MODE_LOGOUT = 0x2;
-    public final static int MODE_REFRESH_USER_LIST = 0x3;
-    public final static int MODE_REFRESH_ROOM_LIST = 0x4;
-    public final static int MODE_LOBBY_STRING = 0x10;
-    public final static int MODE_LOBBY_FILE = 0x11;
-    public final static int MODE_LOBBY_IMAGE = 0x12;
-    public final static int MODE_MAKE_ROOM = 0x30;
-    public final static int MODE_ROOM_ENTERED = 0x31;
-    public final static int MODE_GAME_START = 0x32;
-    public final static int MODE_JOIN_ROOM = 0x33;
-    public final static int MODE_ROOM_INFO = 0x34;
-    public final static int MODE_REFRESH_GAME_USER_LIST = 0x35;
-    public final static int MODE_EXIT_ROOM = 0x36;
-    public final static int MODE_WAITING_STRING = 0x37;
-    public final static int MODE_START = 0x38;
+    private static final long serialVersionUID = 1L;
 
-    String userID;
-    int mode;
-    String message;
-    ImageIcon image;
-    long size;
-    public OmokMsg(String userID, int code, String message, ImageIcon image, long size) {
+    public static final int MODE_LOGIN = 1;
+    public static final int MODE_LOGOUT = 2;
+    public static final int MODE_LOBBY_STRING = 3;
+    public static final int MODE_LOBBY_IMAGE = 4;
+    public static final int MODE_REFRESH_USER_LIST = 5;
+    public static final int MODE_MAKE_ROOM = 6;
+    public static final int MODE_JOIN_ROOM = 7;
+    public static final int MODE_REFRESH_ROOM_LIST = 8;
+    public static final int MODE_ROOM_ENTERED = 9;
+    public static final int MODE_ROOM_INFO = 10;
+    public static final int MODE_REFRESH_GAME_USER_LIST = 11;
+    public static final int MODE_EXIT_ROOM = 12;
+    public static final int MODE_WAITING_STRING = 13;
+    public static final int MODE_GAME_START = 14;
+    public static final int MODE_START = 15;
+
+    // 게임 플레이용 모드
+    public static final int MODE_PLACE_STONE = 20;        // 돌 놓기
+    public static final int MODE_STONE_PLACED = 21;       // 돌이 놓여졌음
+    public static final int MODE_SUGGEST_MOVE = 22;       // 관전자 훈수
+    public static final int MODE_SUGGESTION_RECEIVED = 23; // 훈수 수신
+    public static final int MODE_GAME_OVER = 24;          // 게임 종료
+    public static final int MODE_TURN_CHANGED = 27;       // 턴 변경
+
+    private String userID;
+    private int mode;
+    private String message;
+    private byte[] image;
+
+    // 게임 플레이용
+    private int x;
+    private int y;
+    private int color;  // 1: 흑돌, 2: 백돌
+
+    public OmokMsg(String userID, int mode) {
         this.userID = userID;
-        this.mode = code;
+        this.mode = mode;
+    }
+
+    public OmokMsg(String userID, int mode, String message) {
+        this.userID = userID;
+        this.mode = mode;
         this.message = message;
-        this.image = image;
-        this.size = size;
     }
 
-    public OmokMsg(String userID, int code, String message, ImageIcon image) {
-        this(userID, code, message, image, 0);
-    }
-    public OmokMsg(String userID, int code) {
-        this(userID, code, null, null);
-    }
-    public OmokMsg(String userID, int code, String message) {
-        this(userID, code, message, null);
-    }
-    public OmokMsg(String userID, int code, ImageIcon image) {
-        this(userID, code, null, image);
+    public OmokMsg(String userID, int mode, int x, int y, int color) {
+        this.userID = userID;
+        this.mode = mode;
+        this.x = x;
+        this.y = y;
+        this.color = color;
     }
 
-    public String getUserID() {
-        return userID;
-    }
-
-    public int getMode() {
-        return mode;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public ImageIcon getImage() {
-        return image;
-    }
-
-    public long getSize() {
-        return size;
-    }
+    public String getUserID() { return userID; }
+    public int getMode() { return mode; }
+    public String getMessage() { return message; }
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public int getColor() { return color; }
 }

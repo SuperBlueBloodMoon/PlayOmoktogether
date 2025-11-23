@@ -254,12 +254,30 @@ public class OmokServer extends JFrame {
                         message = uid + ": " + msg.getMessage();
                         printDisplay(message);
                         this.myRoom.broadcastGameRoom(msg);
-                    } else if(msg.getMode() == OmokMsg.MODE_GAME_START) {           // 게임시작 (방장인지 확인)
+                    } else if(msg.getMode() == OmokMsg.MODE_GAME_START) {
                         if (this.myRoom.getOwner().equals(myPlayer)) {
                             this.myRoom.startGame();
                             this.myRoom.broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_START, "SUCCESS"));
                         } else {
                             send(new OmokMsg("SERVER", OmokMsg.MODE_START, "FAILED"));
+                        }
+                    } else if (msg.getMode() == OmokMsg.MODE_PLACE_STONE) {
+                        if (this.myRoom != null && this.myRoom.isGameStarted()) {
+                            int x = msg.getX();
+                            int y = msg.getY();
+                            boolean success = this.myRoom.placeStone(uid, x, y);
+
+                            if (!success) {
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_WAITING_STRING,
+                                        "잘못된 위치이거나 당신의 차례가 아닙니다."));
+                            }
+                        }
+                    } else if (msg.getMode() == OmokMsg.MODE_SUGGEST_MOVE) {
+                        // 관전자가 훈수를 둠
+                        if (this.myRoom != null && this.myRoom.isGameStarted()) {
+                            int x = msg.getX();
+                            int y = msg.getY();
+                            this.myRoom.handleSuggestion(uid, x, y);
                         }
                     }//여기에 새 모드 추가하기
                 }

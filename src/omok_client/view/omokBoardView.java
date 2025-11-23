@@ -2,6 +2,8 @@ package omok_client.view;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class omokBoardView extends JPanel {
     private static final int cellSize = 35;
@@ -9,10 +11,12 @@ public class omokBoardView extends JPanel {
     private final int BLACK = 1;
     private final int WHITE = 2;
     private int[][] board;
+    private List<Point> suggestions;  // 관전자 훈수 위치
 
     public omokBoardView() {
-        // board 배열 초기화 - 여기가 문제였어요
+        // board 배열 초기화
         board = new int[15][15];
+        suggestions = new ArrayList<>();
 
         setPreferredSize(new Dimension(cellSize * 14 + MARGIN * 2, cellSize * 14 + MARGIN * 2));
         setBackground(new Color(222, 184, 135));
@@ -23,6 +27,7 @@ public class omokBoardView extends JPanel {
         super.paintComponent(g);
         drawBoard(g);
         drawStone(g);
+        drawSuggestions(g);  // 훈수 표시
     }
 
     public void drawBoard(Graphics g) {
@@ -36,11 +41,11 @@ public class omokBoardView extends JPanel {
                     MARGIN - 8 + i * cellSize, MARGIN + 14 * cellSize);
         }
 
-        // 화점 그리기
+        // 화점 그리기 (선택사항)
         drawStarPoints(g);
     }
 
-    // 화점 그리기
+    // 화점(星) 표시 - 오목판의 주요 교차점
     private void drawStarPoints(Graphics g) {
         g.setColor(Color.BLACK);
         int[] starPositions = {3, 7, 11}; // 4번째, 8번째, 12번째 선
@@ -55,7 +60,7 @@ public class omokBoardView extends JPanel {
     }
 
     public void drawStone(Graphics g) {
-        if (board == null) return;
+        if (board == null) return; // null 체크 추가
 
         for (int y = 0; y < 15; y++) {
             for (int x = 0; x < 15; x++) {
@@ -77,23 +82,12 @@ public class omokBoardView extends JPanel {
         }
     }
 
-    public void setBoard(int[][] board) {
-        this.board = board;
-        repaint(); // Swing 이벤트에 "다시 그려라" 요청
-    }
-
     // 특정 위치에 돌 놓기
     public void placeStone(int x, int y, int color) {
         if (x >= 0 && x < 15 && y >= 0 && y < 15) {
             board[y][x] = color;
             repaint();
         }
-    }
-
-    // 보드 초기화
-    public void clearBoard() {
-        board = new int[15][15];
-        repaint();
     }
 
     // 특정 위치가 비어있는지 확인
@@ -104,15 +98,43 @@ public class omokBoardView extends JPanel {
         return false;
     }
 
+    // 훈수 추가
+    public void addSuggestion(int x, int y) {
+        suggestions.add(new Point(x, y));
+        repaint();
+    }
+
+    // 훈수 제거
+    public void clearSuggestions() {
+        suggestions.clear();
+        repaint();
+    }
+
+    // 훈수 표시
+    private void drawSuggestions(Graphics g) {
+        // graphics인 g를 graphics2D로 캐스팅 -> 투명도 조절같은 기능 사용 가능!
+        Graphics2D g2d = (Graphics2D) g;
+        // SRC_OVER: 기존 이미지 위에 새 이미지를 겹쳐 그리기. 판 위에 돌 올리기 위해서
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f)); // 반투명
+
+        for (Point p : suggestions) {
+            int px = MARGIN - 8 + p.x * cellSize - 10;
+            int py = MARGIN + p.y * cellSize - 10;
+
+            g2d.setColor(new Color(255, 0, 0)); // 빨간색 훈수
+            g2d.fillOval(px, py, 20, 20);
+            g2d.setColor(Color.BLACK);
+            g2d.drawOval(px, py, 20, 20);
+        }
+
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f)); // 불투명으로 복원
+    }
+
     public static int getCellSize() {
         return cellSize;
     }
 
     public int getMargin() {
         return MARGIN;
-    }
-
-    public int[][] getBoard() {
-        return board;
     }
 }

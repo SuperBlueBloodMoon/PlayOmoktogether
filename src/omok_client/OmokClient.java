@@ -15,6 +15,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class OmokClient extends JFrame {
     private Socket socket;
@@ -130,6 +132,8 @@ public class OmokClient extends JFrame {
                                 //printDisplay(msg.getImage());
                                 break;
                             case OmokMsg.MODE_ROOM_ENTERED:
+                                // 알아보니까, SwingUtilities.invokeLater 쓰는 것이 더 안전하다고 함!
+                                // 교착상태, 깜빡임, 크래시 같은 상황을 예방 가능
                                 SwingUtilities.invokeLater(() -> showView(WAITING_VIEW));
                                 break;
                             case OmokMsg.MODE_REFRESH_ROOM_LIST:
@@ -156,6 +160,14 @@ public class OmokClient extends JFrame {
                                 }
                             case OmokMsg.MODE_WAITING_STRING:
                                 waitingDisplay(msg.getUserID() + ": " + msg.getMessage());
+                                if (msg.getMessage().equals("SPECTATOR")) {
+                                    // 해당 유저 관전자 설정
+                                    SwingUtilities.invokeLater(() -> {
+                                        gamePanel.setSpectatorMode(true);
+                                    });
+                                } else {
+                                    waitingDisplay(msg.getUserID() + ": " + msg.getMessage());
+                                }
                                 break;
                             case OmokMsg.MODE_START:
                                 if (msg.getMessage().equals("SUCCESS")) {
@@ -165,6 +177,41 @@ public class OmokClient extends JFrame {
                                     showMessage(waitingRoomPanel, "방장만이 게임을 시작할 수 있습니다.", "알림", JOptionPane.WARNING_MESSAGE);
                                     });
                                 }
+                                break;
+                            case OmokMsg.MODE_STONE_PLACED:
+                                // 돌이 놓여졌음
+                                int x = msg.getX();
+                                int y = msg.getY();
+                                int color = msg.getColor();
+                                SwingUtilities.invokeLater(() -> {
+                                    gamePanel.placeStone(x, y, color);
+                                    String colorName = (color == 1) ? "흑돌" : "백돌";
+                                    gamePanel.appendMessage(msg.getUserID() + "님이 " + colorName + "을 (" + x + ", " + y + ")에 놓았습니다.");
+                                });
+                                break;
+
+                            case OmokMsg.MODE_SUGGESTION_RECEIVED:
+                                // 관전자 훈수 수신 (현재 턴 플레이어에게만 보임)
+                                int sugX = msg.getX();
+                                int sugY = msg.getY();
+                                SwingUtilities.invokeLater(() -> {
+                                    gamePanel.showSuggestion(sugX, sugY, msg.getUserID());
+                                });
+                                break;
+
+                            case OmokMsg.MODE_TURN_CHANGED:
+                                // 턴 변경
+                                SwingUtilities.invokeLater(() -> {
+                                    gamePanel.updateTurn(msg.getMessage());
+                                });
+                                break;
+
+                            case OmokMsg.MODE_GAME_OVER:
+                                // 게임 종료
+                                SwingUtilities.invokeLater(() -> {
+                                    gamePanel.gameOver(msg.getMessage());
+                                    showMessage(gamePanel, msg.getMessage(), "게임 종료", JOptionPane.INFORMATION_MESSAGE);
+                                });
                                 break;
                         }
                     } catch (IOException | ClassNotFoundException e) {
@@ -594,9 +641,18 @@ class WaitingRoomPanel extends JPanel {
 class GamePanel extends JPanel {
     private OmokClient client;
     private omokBoardView omokBoard;
+    private JTextArea messageArea;
+    private JLabel turnLabel;
+    private JLabel player1Label;
+    private JLabel player2Label;
+    private boolean isSpectator;
+    private List<Point> suggestions;
 
     public GamePanel(OmokClient client) {
         this.client = client;
+        this.suggestions = new ArrayList<>();
+        this.isSpectator = false;
+
         setLayout(new BorderLayout(10, 10));
 
         // --- 오목판 영역 (중앙) ---
@@ -605,22 +661,7 @@ class GamePanel extends JPanel {
         omokBoard.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                int margin = omokBoard.getMargin();
-                int cellSize = omokBoardView.getCellSize();
-
-                // 마진 생각해서 좌표 계산
-                int x = (e.getX() - margin + 8 + cellSize / 2) / cellSize;
-                int y = (e.getY() - margin + cellSize / 2) / cellSize;
-
-                // 유효한 범위 확인
-                if (x >= 0 && x < 15 && y >= 0 && y < 15) {
-                    System.out.println("클릭한 교차점: (" + x + ", " + y + ")");
-
-                    // 그 장소가 비어있다면, 돌을 놓기
-                    if (omokBoard.isEmpty(x, y)) {
-                        // 서버로 메시지 전송하는 함수 넣기
-                    }
-                }
+                handleBoardClick(e);
             }
         });
 
@@ -633,28 +674,38 @@ class GamePanel extends JPanel {
         sidePanel.setLayout(new BoxLayout(sidePanel, BoxLayout.Y_AXIS));
         sidePanel.setPreferredSize(new Dimension(250, 0));
 
+        // 현재 턴 표시
+        turnLabel = new JLabel("게임 대기 중...");
+        turnLabel.setMaximumSize(new Dimension(250, 30));
+
         // 플레이어 정보
         JPanel playerInfoPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        playerInfoPanel.add(new JLabel("● 흑돌 (Player 1)", SwingConstants.CENTER));
-        playerInfoPanel.add(new JLabel("○ 백돌 (Player 2)", SwingConstants.CENTER));
-        playerInfoPanel.setBorder(new TitledBorder("현재 차례/정보"));
+        player1Label = new JLabel("● 흑돌: -");
+        player2Label = new JLabel("○ 백돌: -");
+        playerInfoPanel.add(player1Label);
+        playerInfoPanel.add(player2Label);
+        playerInfoPanel.setBorder(new TitledBorder("플레이어 정보"));
         playerInfoPanel.setMaximumSize(new Dimension(250, 80));
 
         // 게임 메시지/대화
-        JTextArea messageArea = new JTextArea(15, 20);
+        messageArea = new JTextArea(15, 20);
         messageArea.setEditable(false);
-        messageArea.setText("[알림] 게임 시작!\n[알림] 흑돌의 차례입니다.\n");
+        messageArea.setText("[시스템] 게임 화면에 입장했습니다.\n");
         JScrollPane messageScrollPane = new JScrollPane(messageArea);
-        messageScrollPane.setBorder(new TitledBorder("메시지 / 대화"));
+        messageScrollPane.setBorder(new TitledBorder("게임 메시지"));
 
         // 제어 버튼
-        JPanel controlPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        JButton exitButton = new JButton("나가기");
+        JPanel controlPanel = new JPanel(new GridLayout(3, 1, 5, 5));
+
         JButton surrenderButton = new JButton("기권");
+        JButton exitButton = new JButton("나가기");
+
         controlPanel.add(surrenderButton);
         controlPanel.add(exitButton);
-        controlPanel.setMaximumSize(new Dimension(250, 80));
+        controlPanel.setMaximumSize(new Dimension(250, 70));
 
+        sidePanel.add(Box.createVerticalStrut(10));
+        sidePanel.add(turnLabel);
         sidePanel.add(Box.createVerticalStrut(10));
         sidePanel.add(playerInfoPanel);
         sidePanel.add(Box.createVerticalStrut(10));
@@ -667,15 +718,96 @@ class GamePanel extends JPanel {
         add(boardPanel, BorderLayout.CENTER);
         add(sidePanel, BorderLayout.EAST);
 
-        // 나가기 버튼
+
+        surrenderButton.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "기권하시겠습니까?",
+                    "기권 확인",
+                    JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                // 기권기능 넣기
+            }
+        });
+
         exitButton.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(this,
-                    "게임을 종료하고 로비로 돌아가시겠습니까?",
+                    "게임을 종료하고 대기실로 돌아가시겠습니까?",
                     "게임 종료",
                     JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
-                client.showView(OmokClient.LOBBY_VIEW);
+                client.showView(OmokClient.WAITING_VIEW);
             }
         });
+    }
+
+    // 오목판 클릭 처리
+    private void handleBoardClick(MouseEvent e) {
+        int margin = omokBoard.getMargin();
+        int cellSize = omokBoardView.getCellSize();
+
+        // 마진 고려 좌표 계산. 마우스는 픽셀 좌표로 값을 주고, 오목판에선 이 좌표가 아니라 다른 값을 사용
+        int x = (e.getX() - margin + 8 + cellSize / 2) / cellSize;
+        int y = (e.getY() - margin + cellSize / 2) / cellSize;
+
+        // 유효한 범위 체크
+        if (x >= 0 && x < 15 && y >= 0 && y < 15) {
+            if (omokBoard.isEmpty(x, y)) {
+                if (isSpectator) {
+                    // 관전자는 훈수를 둠
+                    client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_SUGGEST_MOVE, x, y, 0));
+                    appendMessage("[훈수] 당신이 (" + x + ", " + y + ")를 제안했습니다.");
+                } else {
+                    // 플레이어는 실제로 돌을 둠
+                    int color = 1;
+                    client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_PLACE_STONE, x, y, color));
+                }
+            } else {
+                appendMessage("[경고] 이미 돌이 놓인 위치입니다.");
+            }
+        }
+    }
+
+    // 돌 놓기 (서버로부터 받은 정보)
+    public void placeStone(int x, int y, int color) {
+        omokBoard.placeStone(x, y, color);
+        // 훈수 제거 (실제 수가 놓여졌으므로)
+        clearSuggestions();
+    }
+
+    // 관전자 훈수 표시 (반투명으로)
+    public void showSuggestion(int x, int y, String spectatorId) {
+        suggestions.add(new Point(x, y));
+        omokBoard.addSuggestion(x, y);
+        appendMessage("[훈수] " + spectatorId + "님이 (" + x + ", " + y + ")를 제안했습니다.");
+    }
+
+    private void clearSuggestions() {
+        suggestions.clear();
+        omokBoard.clearSuggestions();
+    }
+
+    public void updateTurn(String message) {
+        turnLabel.setText(message);
+        appendMessage("[턴] " + message);
+    }
+
+    public void setSpectatorMode(boolean isSpectator) {
+        this.isSpectator = isSpectator;
+        if (isSpectator) {
+            appendMessage("[시스템] 관전자 모드입니다. 클릭하면 훈수를 둘 수 있습니다.");
+        }
+    }
+
+    public void gameOver(String message) {
+        appendMessage("[게임 종료] " + message);
+        turnLabel.setText("게임 종료");
+        // 더 이상 클릭 못하도록
+        omokBoard.setEnabled(false);
+    }
+
+    // 게임 진행 중 메시지 띄우기용
+    public void appendMessage(String message) {
+        messageArea.append(message + "\n");
+        messageArea.setCaretPosition(messageArea.getDocument().getLength());
     }
 }
