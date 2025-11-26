@@ -16,6 +16,9 @@ public class GameRoom {
     private int currentTurn;  // 0: Player A (흑돌), 1: Player B (백돌)
     private int[][] board;
 
+    //복기 기록용
+    private GameRecord gameRecord;
+
     private static final int BOARD_SIZE = 15;
     private static final int BLACK = 1;
     private static final int WHITE = 2;
@@ -70,6 +73,11 @@ public class GameRoom {
         currentTurn = 0;
         board = new int[BOARD_SIZE][BOARD_SIZE];
 
+        //게임레코드 초기화. 두판 연속으로 하거나 그러면 꼬일수도 있으니.
+        String player1Id = players.get(0).getClientHandler().getUid();
+        String player2Id = players.get(1).getClientHandler().getUid();
+        gameRecord = new GameRecord(player1Id, player2Id);
+
         // 관전자들에게 알림
         for (Player spectator : spectators) {
             OmokMsg spectatorMsg = new OmokMsg("SERVER", OmokMsg.MODE_WAITING_STRING, "SPECTATOR");
@@ -103,12 +111,18 @@ public class GameRoom {
         int color = (currentTurn == 0) ? BLACK : WHITE;
         board[y][x] = color;
 
+        //여기서, playerId, x, y 로 큐에다 넣으면 될듯
+        //각 수 기록
+        gameRecord.addPlayerMove(playerId, x, y);
+
         // 모든 플레이어와 관전자에게 알림
         OmokMsg stonePlacedMsg = new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, color);
         broadcastGameRoom(stonePlacedMsg);
 
         // 승리 체크
         if (checkWin(x, y, color)) {
+            //게임종료 기록
+            gameRecord.endGame(playerId);
             broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER,
                     playerId + "님이 승리하였습니다!"));
             gameStarted = false;
@@ -140,6 +154,9 @@ public class GameRoom {
         if (!isSpectator) {
             return;
         }
+
+        //훈수 기록
+        gameRecord.addSpectatorSuggestion(spectatorId, x, y);
 
         // 현재 플레이어에게만 훈수 전송
         Player currentPlayer = players.get(currentTurn);
