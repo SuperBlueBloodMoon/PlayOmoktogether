@@ -171,6 +171,7 @@ public class OmokClient extends JFrame {
                                 break;
                             case OmokMsg.MODE_START:
                                 if (msg.getMessage().equals("SUCCESS")) {
+                                    //여기서 플레이어/관전자를 구분해서 패널을 만들어라 시키면 될듯
                                     SwingUtilities.invokeLater(() -> showView(GAME_VIEW));
                                 } else {
                                     SwingUtilities.invokeLater(() -> {
@@ -707,7 +708,7 @@ class GamePanel extends JPanel {
         controlPanel.add(surrenderButton);
         controlPanel.add(exitButton);
         controlPanel.setMaximumSize(new Dimension(250, 70));
-
+        
         sidePanel.add(Box.createVerticalStrut(10));
         sidePanel.add(turnLabel);
         sidePanel.add(Box.createVerticalStrut(10));
