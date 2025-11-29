@@ -20,7 +20,10 @@ public class OmokMsg implements Serializable {
     public static final int MODE_WAITING_STRING = 13;
     public static final int MODE_GAME_START = 14;
     public static final int MODE_START = 15;
-
+    public static final int MODE_RESULT_COUNT = 16;
+    public static final int MODE_REPLAY_PREV = 17;
+    public static final int MODE_REPLAY_NEXT = 18;
+    public static final int MODE_CURRENT_COUNT = 19;
     // 게임 플레이용 모드
     public static final int MODE_PLACE_STONE = 20;        // 돌 놓기
     public static final int MODE_STONE_PLACED = 21;       // 돌이 놓여졌음
@@ -33,6 +36,8 @@ public class OmokMsg implements Serializable {
     private int mode;
     private String message;
     private byte[] image;
+    private String currentIndex;
+    private String endIndex;
 
     // 게임 플레이용
     private int x;
@@ -49,6 +54,12 @@ public class OmokMsg implements Serializable {
         this.mode = mode;
         this.message = message;
     }
+    public OmokMsg(String userID, int mode, String currentIndex, String endIndex) {
+        this.userID = userID;
+        this.mode = mode;
+        this.currentIndex = currentIndex;
+        this.endIndex = endIndex;
+    }
 
     public OmokMsg(String userID, int mode, int x, int y, int color) {
         this.userID = userID;
@@ -58,10 +69,19 @@ public class OmokMsg implements Serializable {
         this.color = color;
     }
 
+    public OmokMsg(String userID, int mode, int x, int y) {
+        this.userID = userID;
+        this.mode = mode;
+        this.x = x;
+        this.y = y;
+    }
+
     public String getUserID() { return userID; }
     public int getMode() { return mode; }
     public String getMessage() { return message; }
     public int getX() { return x; }
     public int getY() { return y; }
     public int getColor() { return color; }
+    public String getCurrentIndex() { return currentIndex; }
+    public String getEndIndex() { return endIndex; }
 }

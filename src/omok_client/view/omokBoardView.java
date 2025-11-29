@@ -89,6 +89,12 @@ public class omokBoardView extends JPanel {
             repaint();
         }
     }
+    public void removeStone(int x, int y) {
+        if (x >= 0 && x < 15 && y >= 0 && y < 15) {
+            board[y][x] = 0;
+            repaint();
+        }
+    }
 
     // 특정 위치가 비어있는지 확인
     public boolean isEmpty(int x, int y) {
@@ -136,5 +142,15 @@ public class omokBoardView extends JPanel {
 
     public int getMargin() {
         return MARGIN;
+    }
+
+    public void reset() {
+        for (int y = 0; y < 15; y++) {
+            for (int x = 0; x < 15; x++) {
+                board[y][x] = 0;
+            }
+        }
+        suggestions.clear();
+        repaint();
     }
 }

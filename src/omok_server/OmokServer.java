@@ -1,5 +1,6 @@
 package omok_server;
 
+import omok_shared.MoveRecord;
 import omok_shared.OmokMsg;
 
 import javax.swing.*;
@@ -10,6 +11,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Objects;
 import java.util.Vector;
 
 public class OmokServer extends JFrame {
@@ -279,6 +281,48 @@ public class OmokServer extends JFrame {
                             int y = msg.getY();
                             this.myRoom.handleSuggestion(uid, x, y);
                         }
+                    } else if (msg.getMode() == OmokMsg.MODE_REPLAY_PREV) {
+                        int currentIndex = Integer.parseInt(msg.getCurrentIndex());
+                        int endIndex = Integer.parseInt(msg.getEndIndex());
+                        MoveRecord prevRecord;
+                        prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
+                        if (Objects.equals(prevRecord.getPlayerId(), this.myRoom.getOwner().getClientHandler().getUid())) {
+                            send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV,prevRecord.getX(),prevRecord.getY(), 1));
+                        } else {
+                            send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV,prevRecord.getX(),prevRecord.getY(), 2));
+                        }
+                        --currentIndex;
+                        if (currentIndex != -1) {
+                            prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
+                            while (prevRecord.isSpectator()) {
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV,prevRecord.getX(),prevRecord.getY(), 3));
+                                --currentIndex;
+                                if (currentIndex == -1) {
+                                   break;
+                                }
+                                prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
+                            }
+                        }
+                        send(new OmokMsg("SERVER", OmokMsg.MODE_CURRENT_COUNT, String.valueOf(currentIndex)));
+                    } else if (msg.getMode() == OmokMsg.MODE_REPLAY_NEXT) {
+                        int currentIndex = Integer.parseInt(msg.getCurrentIndex());
+                        int endIndex = Integer.parseInt(msg.getEndIndex());
+                        if (currentIndex != endIndex - 1) {
+                            MoveRecord nextRecord;
+                            ++currentIndex;
+                            nextRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
+                            while (nextRecord.isSpectator()) {
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 3));
+                                ++currentIndex;
+                                nextRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
+                            }
+                            if (Objects.equals(nextRecord.getPlayerId(), this.myRoom.getOwner().getClientHandler().getUid())) {
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 1));
+                            } else {
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 2));
+                            }
+                        }
+                        send(new OmokMsg("SERVER", OmokMsg.MODE_CURRENT_COUNT, String.valueOf(currentIndex)));
                     }//여기에 새 모드 추가하기
                 }
                 users.removeElement(this);

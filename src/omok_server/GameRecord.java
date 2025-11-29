@@ -49,4 +49,5 @@ public class GameRecord {
     public String getPlayer2Id() { return player2Id; }
     public String getWinner() { return winner; }
     public int getTotalMoves() { return currentMoveNumber; }
+    public int getMoveCount() { return moveQueue.size(); }
 }

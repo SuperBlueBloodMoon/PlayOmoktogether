@@ -27,6 +27,8 @@ public class OmokClient extends JFrame {
     private CardLayout cardLayout = new CardLayout();
     private JPanel mainPanel = new JPanel(cardLayout);
     private  Thread receiveThread;
+    private int endIndex;
+    private int currentIndex;
 
     // 각 화면 패널
     private LoginPanel loginPanel;
@@ -214,6 +216,47 @@ public class OmokClient extends JFrame {
                                     showMessage(gamePanel, msg.getMessage(), "게임 종료", JOptionPane.INFORMATION_MESSAGE);
                                 });
                                 break;
+
+                            case OmokMsg.MODE_RESULT_COUNT:
+                                // 게임의 총 Index 받아오기
+                                endIndex = Integer.parseInt(msg.getMessage());
+                                currentIndex = -1;
+                                gamePanel.getReviewButton().setEnabled(true);
+                                break;
+
+                            case OmokMsg.MODE_REPLAY_NEXT:
+                                x = msg.getX();
+                                y = msg.getY();
+                                color = msg.getColor();
+                                if (color == 3) {
+                                    SwingUtilities.invokeLater(() -> {
+                                        gamePanel.reviewShowSuggestion(x, y);
+                                    });
+                                    break;
+                                }
+                                SwingUtilities.invokeLater(() -> {
+                                    gamePanel.reviewPlaceStone(x, y, color);
+                                });
+                                break;
+                            case OmokMsg.MODE_REPLAY_PREV:
+                                x = msg.getX();
+                                y = msg.getY();
+                                color = msg.getColor();
+                                if (color == 3) {
+                                    SwingUtilities.invokeLater(() -> {
+                                        gamePanel.reviewShowSuggestion(x, y);
+                                    });
+                                    break;
+                                }
+                                SwingUtilities.invokeLater(() -> {
+                                    gamePanel.reviewRemoveStone(x, y);
+                                });
+                                break;
+
+                            case OmokMsg.MODE_CURRENT_COUNT:
+                                currentIndex = Integer.parseInt(msg.getMessage());
+                                break;
+
                         }
                     } catch (IOException | ClassNotFoundException e) {
                         throw new RuntimeException(e);
@@ -312,7 +355,18 @@ public class OmokClient extends JFrame {
            JOptionPane.showMessageDialog(parent, message, title, messageType);
        });
    }
-
+    public void setEndIndex(int endIndex) {
+        this.endIndex = endIndex;
+    }
+    public int getEndIndex() {
+        return endIndex;
+    }
+    public void setCurrentIndex(int currentIndex) {
+        this.currentIndex = currentIndex;
+    }
+    public int getCurrentIndex() {
+        return currentIndex;
+    }
     public static void main(String[] args) {
         String[] config = loadServerConfig();
         new OmokClient(config[0],config[1]);
@@ -650,6 +704,9 @@ class GamePanel extends JPanel {
     private JLabel turnLabel;
     private JLabel player1Label;
     private JLabel player2Label;
+    private JButton reviewButton;
+    private JButton prevButton;
+    private JButton nextButton;
     private boolean isSpectator;
     private List<Point> suggestions;
 
@@ -700,14 +757,25 @@ class GamePanel extends JPanel {
         messageScrollPane.setBorder(new TitledBorder("게임 메시지"));
 
         // 제어 버튼
-        JPanel controlPanel = new JPanel(new GridLayout(3, 1, 5, 5));
+        JPanel controlPanel = new JPanel(new GridLayout(4, 1, 5, 5));
 
         JButton surrenderButton = new JButton("기권");
         JButton exitButton = new JButton("나가기");
+        reviewButton = new JButton("복기");
+        prevButton = new JButton("이전");
+        nextButton = new JButton("이후");
+
+        // 3. '이전', '이후' 버튼을 담을 보조 패널 생성 (가로 2칸)
+        JPanel navPanel = new JPanel(new GridLayout(1, 2, 5, 0)); // 1행 2열
+        navPanel.add(prevButton);
+        navPanel.add(nextButton);
 
         controlPanel.add(surrenderButton);
         controlPanel.add(exitButton);
-        controlPanel.setMaximumSize(new Dimension(250, 70));
+        controlPanel.add(reviewButton);
+        controlPanel.add(navPanel);
+        controlPanel.setPreferredSize(new Dimension(250, 105));
+        controlPanel.setMaximumSize(new Dimension(250, 105));
         
         sidePanel.add(Box.createVerticalStrut(10));
         sidePanel.add(turnLabel);
@@ -718,6 +786,10 @@ class GamePanel extends JPanel {
         sidePanel.add(Box.createVerticalStrut(10));
         sidePanel.add(controlPanel);
         sidePanel.add(Box.createVerticalGlue());
+
+        reviewButton.setEnabled(false);
+        prevButton.setEnabled(false);
+        nextButton.setEnabled(false);
 
         // --- 최종 조립 ---
         add(boardPanel, BorderLayout.CENTER);
@@ -740,7 +812,47 @@ class GamePanel extends JPanel {
                     "게임 종료",
                     JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
+                client.setCurrentIndex(-1);
+                client.setEndIndex(0);
                 client.showView(OmokClient.WAITING_VIEW);
+            }
+        });
+        reviewButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                omokBoard.reset();
+                getReviewButton().setEnabled(false);
+                nextButton.setEnabled(true);
+            }
+        });
+
+        prevButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                clearSuggestions();
+                if (client.getCurrentIndex() == client.getEndIndex() - 1) {
+                    getNextButton().setEnabled(true);
+                }
+                if (client.getCurrentIndex() == -1) {
+                    getPrevButton().setEnabled(false);
+                    return;
+                }
+
+                client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_REPLAY_PREV, String.valueOf(client.getCurrentIndex()),String.valueOf(client.getEndIndex())));
+            }
+        });
+        nextButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                clearSuggestions();
+                if (client.getCurrentIndex() == -1) {
+                    getPrevButton().setEnabled(true);
+                }
+                if (client.getCurrentIndex() == client.getEndIndex() - 1) {
+                    getNextButton().setEnabled(false);
+                    return;
+                }
+                client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_REPLAY_NEXT, String.valueOf(client.getCurrentIndex()), String.valueOf(client.getEndIndex())));
             }
         });
     }
@@ -770,6 +882,17 @@ class GamePanel extends JPanel {
                 appendMessage("[경고] 이미 돌이 놓인 위치입니다.");
             }
         }
+    }
+
+    public void reviewPlaceStone(int x, int y, int color) {
+        omokBoard.placeStone(x, y, color);
+    }
+    public void reviewRemoveStone(int x, int y) {
+        omokBoard.removeStone(x, y);
+    }
+    public void reviewShowSuggestion(int x, int y) {
+        suggestions.add(new Point(x, y));
+        omokBoard.addSuggestion(x, y);
     }
 
     // 돌 놓기 (서버로부터 받은 정보)
@@ -814,5 +937,14 @@ class GamePanel extends JPanel {
     public void appendMessage(String message) {
         messageArea.append(message + "\n");
         messageArea.setCaretPosition(messageArea.getDocument().getLength());
+    }
+    public JButton getNextButton() {
+        return nextButton;
+    }
+    public JButton getPrevButton() {
+        return prevButton;
+    }
+    public JButton getReviewButton() {
+        return reviewButton;
     }
 }

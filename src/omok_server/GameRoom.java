@@ -125,6 +125,8 @@ public class GameRoom {
             gameRecord.endGame(playerId);
             broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER,
                     playerId + "님이 승리하였습니다!"));
+            int count = gameRecord.getMoveCount();
+            broadcastGameRoom(new OmokMsg("SERVER",OmokMsg.MODE_RESULT_COUNT,String.valueOf(count)));
             gameStarted = false;
             return true;
         }
@@ -228,4 +230,8 @@ public class GameRoom {
     public Player getOwner() { return owner; }
     public int getPlayerCount() { return players.size(); }
     public boolean isGameStarted() { return gameStarted; }
+
+    public GameRecord getGameRecord() {
+        return gameRecord;
+    }
 }
