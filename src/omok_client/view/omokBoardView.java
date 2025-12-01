@@ -2,7 +2,7 @@ package omok_client.view;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 
 public class omokBoardView extends JPanel {
@@ -13,10 +13,14 @@ public class omokBoardView extends JPanel {
     private int[][] board;
     private List<Point> suggestions;  // 관전자 훈수 위치
 
+    // 훈수별 색상 저장
+    private Map<Point, Color> suggestionColors;
+
     public omokBoardView() {
         // board 배열 초기화
         board = new int[15][15];
         suggestions = new ArrayList<>();
+        suggestionColors = new HashMap<>();
 
         setPreferredSize(new Dimension(cellSize * 14 + MARGIN * 2, cellSize * 14 + MARGIN * 2));
         setBackground(new Color(222, 184, 135));
@@ -89,6 +93,7 @@ public class omokBoardView extends JPanel {
             repaint();
         }
     }
+
     public void removeStone(int x, int y) {
         if (x >= 0 && x < 15 && y >= 0 && y < 15) {
             board[y][x] = 0;
@@ -104,19 +109,29 @@ public class omokBoardView extends JPanel {
         return false;
     }
 
-    // 훈수 추가
+    // 훈수 추가 (색상 지정)
+    public void addSuggestion(int x, int y, Color color) {
+        Point p = new Point(x, y);
+        if (!suggestions.contains(p)) {
+            suggestions.add(p);
+            suggestionColors.put(p, color);
+            repaint();
+        }
+    }
+
+    // 훈수 추가 (기본 빨강)
     public void addSuggestion(int x, int y) {
-        suggestions.add(new Point(x, y));
-        repaint();
+        addSuggestion(x, y, new Color(255, 0, 0));
     }
 
     // 훈수 제거
     public void clearSuggestions() {
         suggestions.clear();
+        suggestionColors.clear();
         repaint();
     }
 
-    // 훈수 표시
+    // 훈수 표시 (색상별로)
     private void drawSuggestions(Graphics g) {
         // graphics인 g를 graphics2D로 캐스팅 -> 투명도 조절같은 기능 사용 가능!
         Graphics2D g2d = (Graphics2D) g;
@@ -127,7 +142,10 @@ public class omokBoardView extends JPanel {
             int px = MARGIN - 8 + p.x * cellSize - 10;
             int py = MARGIN + p.y * cellSize - 10;
 
-            g2d.setColor(new Color(255, 0, 0)); // 빨간색 훈수
+            // 해당 훈수의 색상 가져오기 (없으면 기본 빨강)
+            Color adviceColor = suggestionColors.getOrDefault(p, new Color(255, 0, 0));
+
+            g2d.setColor(adviceColor);
             g2d.fillOval(px, py, 20, 20);
             g2d.setColor(Color.BLACK);
             g2d.drawOval(px, py, 20, 20);
@@ -151,6 +169,7 @@ public class omokBoardView extends JPanel {
             }
         }
         suggestions.clear();
+        suggestionColors.clear();
         repaint();
     }
 }

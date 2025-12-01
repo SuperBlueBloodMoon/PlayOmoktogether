@@ -281,6 +281,30 @@ public class OmokServer extends JFrame {
                             int y = msg.getY();
                             this.myRoom.handleSuggestion(uid, x, y);
                         }
+                    } else if(msg.getMode() == OmokMsg.MODE_REQUEST_ADVICE) {
+                        // 플레이어가 훈수 요청
+                        if (this.myRoom != null && this.myRoom.isGameStarted()) {
+                            this.myRoom.requestAdvice(uid);
+                        }
+                    } else if (msg.getMode() == OmokMsg.MODE_OFFER_ADVICE) {
+                        // 관전자가 훈수 제공 의사 표시
+                        if (this.myRoom != null && this.myRoom.isGameStarted()) {
+                            this.myRoom.offerAdvice(uid);
+                        }
+                    } else if (msg.getMode() == OmokMsg.MODE_SELECT_ADVISOR) {
+                        // 플레이어가 관전자 선택
+                        if (this.myRoom != null && this.myRoom.isGameStarted()) {
+                            String selectedAdvisorId = msg.getMessage();
+                            this.myRoom.selectAdvisor(uid, selectedAdvisorId);
+                        }
+                    } else if (msg.getMode() == OmokMsg.MODE_GAME_CHAT) {
+                        // 게임 중 채팅
+                        if (this.myRoom != null && this.myRoom.isGameStarted()) {
+                            String chatMessage = msg.getMessage();
+                            OmokMsg chatBroadcast = new OmokMsg(uid, OmokMsg.MODE_GAME_CHAT, chatMessage);
+                            this.myRoom.broadcastGameRoom(chatBroadcast);
+                            printDisplay("[게임 채팅] " + uid + ": " + chatMessage);
+                        }
                     } else if (msg.getMode() == OmokMsg.MODE_REPLAY_PREV) {
                         int currentIndex = Integer.parseInt(msg.getCurrentIndex());
                         int endIndex = Integer.parseInt(msg.getEndIndex());
@@ -413,7 +437,8 @@ public class OmokServer extends JFrame {
                 allRooms.append(room.getRoomId());
                 allRooms.append("|");
                 allRooms.append(room.getTitle());
-
+                allRooms.append("|");
+                allRooms.append(room.getRoomStatus()); // "대기중" 또는 "게임중"
             }
         }
         return allRooms.toString();

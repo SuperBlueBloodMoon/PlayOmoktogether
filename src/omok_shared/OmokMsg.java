@@ -24,13 +24,22 @@ public class OmokMsg implements Serializable {
     public static final int MODE_REPLAY_PREV = 17;
     public static final int MODE_REPLAY_NEXT = 18;
     public static final int MODE_CURRENT_COUNT = 19;
-    // 게임 플레이용 모드
-    public static final int MODE_PLACE_STONE = 20;        // 돌 놓기
-    public static final int MODE_STONE_PLACED = 21;       // 돌이 놓여졌음
-    public static final int MODE_SUGGEST_MOVE = 22;       // 관전자 훈수
-    public static final int MODE_SUGGESTION_RECEIVED = 23; // 훈수 수신
-    public static final int MODE_GAME_OVER = 24;          // 게임 종료
-    public static final int MODE_TURN_CHANGED = 27;       // 턴 변경
+    public static final int MODE_PLACE_STONE = 20;
+    public static final int MODE_STONE_PLACED = 21;
+    public static final int MODE_SUGGEST_MOVE = 22;
+    public static final int MODE_SUGGESTION_RECEIVED = 23;
+    public static final int MODE_GAME_OVER = 24;
+    public static final int MODE_TURN_CHANGED = 27;
+
+    // 훈수 시스템 모드
+    public static final int MODE_REQUEST_ADVICE = 30;      // 플레이어가 훈수 요청
+    public static final int MODE_ADVICE_REQUEST_BROADCAST = 31; // 관전자들에게 훈수 요청 알림
+    public static final int MODE_OFFER_ADVICE = 32;        // 관전자가 훈수 제공 의사 표시
+    public static final int MODE_ADVICE_OFFERS_LIST = 33;  // 훈수 제공 의사 표시한 관전자 목록
+    public static final int MODE_SELECT_ADVISOR = 34;      // 플레이어가 관전자 선택
+    public static final int MODE_ADVICE_SELECTED = 35;     // 선택 완료 알림
+    public static final int MODE_ADVICE_LIMIT_EXCEEDED = 36; // 훈수 횟수 초과
+    public static final int MODE_GAME_CHAT = 37;           // 게임 중 채팅 (새로 추가)
 
     private String userID;
     private int mode;
@@ -38,17 +47,18 @@ public class OmokMsg implements Serializable {
     private byte[] image;
     private String currentIndex;
     private String endIndex;
-
-    // 게임 플레이용
     private int x;
     private int y;
-    private int color;  // 1: 흑돌, 2: 백돌
+    private int color;
+
+    // 훈수 시스템용
+    private String advisorId;      // 선택된 관전자 ID
+    private int adviceColor;       // 훈수 색상 (관전자별로 다름)
 
     public OmokMsg(String userID, int mode) {
         this.userID = userID;
         this.mode = mode;
     }
-
     public OmokMsg(String userID, int mode, String message) {
         this.userID = userID;
         this.mode = mode;
@@ -60,7 +70,6 @@ public class OmokMsg implements Serializable {
         this.currentIndex = currentIndex;
         this.endIndex = endIndex;
     }
-
     public OmokMsg(String userID, int mode, int x, int y, int color) {
         this.userID = userID;
         this.mode = mode;
@@ -68,7 +77,6 @@ public class OmokMsg implements Serializable {
         this.y = y;
         this.color = color;
     }
-
     public OmokMsg(String userID, int mode, int x, int y) {
         this.userID = userID;
         this.mode = mode;
@@ -84,4 +92,8 @@ public class OmokMsg implements Serializable {
     public int getColor() { return color; }
     public String getCurrentIndex() { return currentIndex; }
     public String getEndIndex() { return endIndex; }
+    public int getAdviceColor() { return adviceColor; }
+
+    public void setAdvisorId(String advisorId) { this.advisorId = advisorId; }
+    public void setAdviceColor(int adviceColor) { this.adviceColor = adviceColor; }
 }
