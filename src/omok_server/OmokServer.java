@@ -257,9 +257,13 @@ public class OmokServer extends JFrame {
                         printDisplay(message);
                         this.myRoom.broadcastGameRoom(msg);
                     } else if(msg.getMode() == OmokMsg.MODE_GAME_START) {
-                        if (this.myRoom.getOwner().equals(myPlayer)) {
-                            this.myRoom.startGame();
-                            this.myRoom.broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_START, "SUCCESS"));
+                        if (this.myRoom.getPlayerCount() > 1) {
+                            if (this.myRoom.getOwner().equals(myPlayer)) {
+                                this.myRoom.startGame();
+                                this.myRoom.broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_START, "SUCCESS"));
+                            } else {
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_START, "FAILED"));
+                            }
                         } else {
                             send(new OmokMsg("SERVER", OmokMsg.MODE_START, "FAILED"));
                         }
@@ -319,7 +323,7 @@ public class OmokServer extends JFrame {
                         if (currentIndex != -1) {
                             prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
                             while (prevRecord.isSpectator()) {
-                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV,prevRecord.getX(),prevRecord.getY(), 3));
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV,prevRecord.getX(),prevRecord.getY(), 3, prevRecord.getSpectatorColor()));
                                 --currentIndex;
                                 if (currentIndex == -1) {
                                    break;
@@ -336,7 +340,7 @@ public class OmokServer extends JFrame {
                             ++currentIndex;
                             nextRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
                             while (nextRecord.isSpectator()) {
-                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 3));
+                                send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 3, nextRecord.getSpectatorColor()));
                                 ++currentIndex;
                                 nextRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
                             }

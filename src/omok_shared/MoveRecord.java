@@ -10,16 +10,23 @@ public class MoveRecord implements Serializable {
     private int x;
     private int y;
     private boolean isSpectator;
+    private int spectatorColor;
 
-    public MoveRecord(String playerId, int x, int y, boolean isSpectator) {
+    public MoveRecord(String playerId, int x, int y, boolean isSpectator, int spectatorColor) {
         this.playerId = playerId;
         this.x = x;
         this.y = y;
         this.isSpectator = isSpectator;
+        this.spectatorColor = spectatorColor;
+    }
+
+    public MoveRecord(String playerId, int x, int y, boolean isSpectator) {
+        this(playerId, x, y, isSpectator, 0);
     }
 
     public String getPlayerId() { return playerId; }
     public int getX() { return x; }
     public int getY() { return y; }
     public boolean isSpectator() { return isSpectator; }
+    public int getSpectatorColor() { return spectatorColor; }
 }

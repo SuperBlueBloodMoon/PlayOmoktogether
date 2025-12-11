@@ -296,10 +296,10 @@ public class GameRoom {
             return;
         }
 
-        gameRecord.addSpectatorSuggestion(spectatorId, x, y);
-
         Player currentPlayer = players.get(currentTurn);
         int adviceColor = spectatorColors.getOrDefault(spectatorId, 0xFF0000); // 기본 빨강
+        System.out.println(adviceColor);
+        gameRecord.addSpectatorSuggestion(spectatorId, x, y, adviceColor);
 
         OmokMsg suggestionMsg = new OmokMsg(spectatorId, OmokMsg.MODE_SUGGESTION_RECEIVED, x, y, 3);
         suggestionMsg.setAdviceColor(adviceColor);
@@ -327,7 +327,8 @@ public class GameRoom {
         selectedAdvisor = null;
         adviceOffers.clear();
 
-        OmokMsg stonePlacedMsg = new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, color);
+        OmokMsg stonePlacedMsg = new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, color
+        );
         broadcastGameRoom(stonePlacedMsg);
 
         if (checkWin(x, y, color)) {
@@ -404,6 +405,15 @@ public class GameRoom {
         for (int i = 0; i < players.size(); i++) {
             if (i > 0) sb.append(",");
             sb.append(players.get(i).getClientHandler().getUid());
+            sb.append(" [플레이어]");
+        }
+        if (!spectators.isEmpty()) {
+            sb.append(",");
+            for (int i = 0; i < spectators.size(); i++) {
+                if (i > 0) sb.append(",");
+                sb.append(spectators.get(i).getClientHandler().getUid());
+                sb.append(" [관전자]");
+            }
         }
         return sb.toString();
     }
@@ -412,6 +422,9 @@ public class GameRoom {
         return gameStarted ? "게임중" : "대기중";
     }
 
+    public int getPlayerSize() {
+        return players.size();
+    }
     public String getRoomId() { return roomId; }
     public String getTitle() { return title; }
     public Player getOwner() { return owner; }

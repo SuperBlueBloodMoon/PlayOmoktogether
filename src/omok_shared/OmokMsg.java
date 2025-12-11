@@ -83,6 +83,14 @@ public class OmokMsg implements Serializable {
         this.x = x;
         this.y = y;
     }
+    public OmokMsg(String userID, int mode, int x, int y, int color, int adviceColor) {
+        this.userID = userID;
+        this.mode = mode;
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.adviceColor = adviceColor;
+    }
 
     public String getUserID() { return userID; }
     public int getMode() { return mode; }

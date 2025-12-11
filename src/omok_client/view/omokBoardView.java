@@ -119,6 +119,10 @@ public class omokBoardView extends JPanel {
         }
     }
 
+    public void addSuggestion(int x, int y, int spectatorColor) {
+        addSuggestion(x, y, new Color(spectatorColor));
+    }
+
     // 훈수 추가 (기본 빨강)
     public void addSuggestion(int x, int y) {
         addSuggestion(x, y, new Color(255, 0, 0));

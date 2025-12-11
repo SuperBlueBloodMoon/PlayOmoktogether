@@ -285,7 +285,7 @@ public class OmokClient extends JFrame {
                                 color = msg.getColor();
                                 if (color == 3) {
                                     SwingUtilities.invokeLater(() -> {
-                                        gamePanel.reviewShowSuggestion(x, y);
+                                        gamePanel.reviewShowSuggestion(x, y, msg.getAdviceColor());
                                     });
                                     break;
                                 }
@@ -299,7 +299,7 @@ public class OmokClient extends JFrame {
                                 color = msg.getColor();
                                 if (color == 3) {
                                     SwingUtilities.invokeLater(() -> {
-                                        gamePanel.reviewShowSuggestion(x, y);
+                                        gamePanel.reviewShowSuggestion(x, y, msg.getAdviceColor());
                                     });
                                     break;
                                 }
@@ -1142,8 +1142,7 @@ class GamePanel extends JPanel {
     public void reviewRemoveStone(int x, int y) {
         omokBoard.removeStone(x, y);
     }
-    public void reviewShowSuggestion(int x, int y) {
-        suggestions.add(new Point(x, y));
-        omokBoard.addSuggestion(x, y);
+    public void reviewShowSuggestion(int x, int y, int spectatorColor) {
+        omokBoard.addSuggestion(x, y, spectatorColor);
     }
 }

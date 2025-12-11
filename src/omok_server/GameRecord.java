@@ -29,8 +29,8 @@ public class GameRecord {
     }
 
     //관전자의 훈수 기록
-    public void addSpectatorSuggestion(String spectatorId, int x, int y) {
-        MoveRecord suggestion = new MoveRecord(spectatorId, x, y, true);
+    public void addSpectatorSuggestion(String spectatorId, int x, int y, int spectatorColor) {
+        MoveRecord suggestion = new MoveRecord(spectatorId, x, y, true, spectatorColor);
         moveQueue.offer(suggestion);
     }
 
