@@ -32,44 +32,50 @@ public class OmokMsg implements Serializable {
     public static final int MODE_TURN_CHANGED = 27;
 
     // 훈수 시스템 모드
-    public static final int MODE_REQUEST_ADVICE = 30;      // 플레이어가 훈수 요청
-    public static final int MODE_ADVICE_REQUEST_BROADCAST = 31; // 관전자들에게 훈수 요청 알림
-    public static final int MODE_OFFER_ADVICE = 32;        // 관전자가 훈수 제공 의사 표시
-    public static final int MODE_ADVICE_OFFERS_LIST = 33;  // 훈수 제공 의사 표시한 관전자 목록
-    public static final int MODE_SELECT_ADVISOR = 34;      // 플레이어가 관전자 선택
-    public static final int MODE_ADVICE_SELECTED = 35;     // 선택 완료 알림
-    public static final int MODE_ADVICE_LIMIT_EXCEEDED = 36; // 훈수 횟수 초과
-    public static final int MODE_GAME_CHAT = 37;           // 게임 중 채팅 (새로 추가)
+    public static final int MODE_REQUEST_ADVICE = 30;
+    public static final int MODE_ADVICE_REQUEST_BROADCAST = 31;
+    public static final int MODE_OFFER_ADVICE = 32;
+    public static final int MODE_ADVICE_OFFERS_LIST = 33;
+    public static final int MODE_SELECT_ADVISOR = 34;
+    public static final int MODE_ADVICE_SELECTED = 35;
+    public static final int MODE_ADVICE_LIMIT_EXCEEDED = 36;
+    public static final int MODE_GAME_CHAT = 37;
+
+    public static final int MODE_PLAYER_INFO = 38;        // 플레이어 정보
+    public static final int MODE_SURRENDER = 39;          // 기권
+    public static final int MODE_SPECTATOR_COUNT = 40;    // 관전자 수
+    public static final int MODE_USER_STATS = 41;         // 사용자 전적
 
     private String userID;
     private int mode;
     private String message;
-    private byte[] image;
     private String currentIndex;
     private String endIndex;
     private int x;
     private int y;
     private int color;
 
-    // 훈수 시스템용
-    private String advisorId;      // 선택된 관전자 ID
-    private int adviceColor;       // 훈수 색상 (관전자별로 다름)
+    private String advisorId;
+    private int adviceColor;
 
     public OmokMsg(String userID, int mode) {
         this.userID = userID;
         this.mode = mode;
     }
+
     public OmokMsg(String userID, int mode, String message) {
         this.userID = userID;
         this.mode = mode;
         this.message = message;
     }
+
     public OmokMsg(String userID, int mode, String currentIndex, String endIndex) {
         this.userID = userID;
         this.mode = mode;
         this.currentIndex = currentIndex;
         this.endIndex = endIndex;
     }
+
     public OmokMsg(String userID, int mode, int x, int y, int color) {
         this.userID = userID;
         this.mode = mode;
@@ -77,12 +83,7 @@ public class OmokMsg implements Serializable {
         this.y = y;
         this.color = color;
     }
-    public OmokMsg(String userID, int mode, int x, int y) {
-        this.userID = userID;
-        this.mode = mode;
-        this.x = x;
-        this.y = y;
-    }
+
     public OmokMsg(String userID, int mode, int x, int y, int color, int adviceColor) {
         this.userID = userID;
         this.mode = mode;

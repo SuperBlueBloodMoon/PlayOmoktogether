@@ -17,6 +17,8 @@ import java.io.*;
 import java.net.Socket;
 import java.util.*;
 import java.util.List;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class OmokClient extends JFrame {
     private Socket socket;
@@ -44,9 +46,18 @@ public class OmokClient extends JFrame {
 
     public OmokClient(String address, String port) {
         setTitle("같이 둬 1.0");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
         serverAddress = address;
         serverPort = Integer.parseInt(port);
+
+        // 윈도우 종료 리스너 추가
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                handleWindowClosing();
+            }
+        });
 
         // --- 패널 생성 ---
         loginPanel = new LoginPanel(this);
@@ -67,6 +78,23 @@ public class OmokClient extends JFrame {
         setVisible(true);
 
         showView(LOGIN_VIEW);
+    }
+
+    private void handleWindowClosing() {
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "프로그램을 종료하시겠습니까?",
+                "종료 확인",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (socket != null && !socket.isClosed()) {
+                send(new OmokMsg(uid, OmokMsg.MODE_LOGOUT));
+            }
+            System.exit(0);
+        }
     }
 
     public void showView(String viewName) {
@@ -311,7 +339,35 @@ public class OmokClient extends JFrame {
                             case OmokMsg.MODE_CURRENT_COUNT:
                                 currentIndex = Integer.parseInt(msg.getMessage());
                                 break;
-
+                            case OmokMsg.MODE_PLAYER_INFO:
+                                // 플레이어 정보 수신 (흑돌, 백돌)
+                                String playerInfoStr = msg.getMessage();
+                                String[] playerInfoParts = playerInfoStr.split("\\|");
+                                if (playerInfoParts.length >= 2) {
+                                    String player1NameWithStats = playerInfoParts[0];
+                                    String player2NameWithStats = playerInfoParts[1];
+                                    SwingUtilities.invokeLater(() -> {
+                                        gamePanel.updatePlayerNames(player1NameWithStats, player2NameWithStats);
+                                    });
+                                }
+                                break;
+                            case OmokMsg.MODE_SPECTATOR_COUNT:
+                                // 관전자 수 업데이트
+                                int spectatorCount = Integer.parseInt(msg.getMessage());
+                                SwingUtilities.invokeLater(() -> {
+                                    gamePanel.updateSpectatorAvailability(spectatorCount > 0);
+                                });
+                                break;
+                            case OmokMsg.MODE_USER_STATS:
+                                // 전적 정보 업데이트
+                                String statsStr = msg.getMessage();
+                                if (statsStr != null && !statsStr.isEmpty()) {
+                                    String[] stats = statsStr.split(",");
+                                    SwingUtilities.invokeLater(() -> {
+                                        lobbyPanel.updateUserStats(stats);
+                                    });
+                                }
+                                break;
                         }
                     } catch (IOException | ClassNotFoundException e) {
                         throw new RuntimeException(e);
@@ -486,6 +542,7 @@ class LobbyPanel extends JPanel {
 
     private DefaultListModel<String> userListModel;
     private JList<String> userList;
+    private Map<String, String> userStats = new HashMap<>();
 
     private DefaultListModel<RoomEntry> roomListModel;
     private JList<RoomEntry> roomList;
@@ -606,10 +663,25 @@ class LobbyPanel extends JPanel {
     public DefaultStyledDocument getDocuments() {
         return document;
     }
+
     public void updateUserList(String[] users) {
         userListModel.clear();
         for (String user : users) {
-            userListModel.addElement(user);
+            // 전적 정보 포함
+            String displayText = user;
+            if (userStats.containsKey(user)) {
+                displayText += " " + userStats.get(user);
+            }
+            userListModel.addElement(displayText);
+        }
+    }
+    public void updateUserStats(String[] stats) {
+        userStats.clear();
+        for (String stat : stats) {
+            String[] parts = stat.split(":");
+            if (parts.length == 2) {
+                userStats.put(parts[0], parts[1]);
+            }
         }
     }
     public void updateRoomList(String[] rooms) {
@@ -906,7 +978,7 @@ class GamePanel extends JPanel {
                     "기권 확인",
                     JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
-                // 기권 기능
+                client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_SURRENDER));
             }
         });
 
@@ -974,8 +1046,7 @@ class GamePanel extends JPanel {
         this.availableAdvisors = advisors;
 
         //dialog 통해서 목록 표시
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this),
-                "훈수할 관전자 선택", true);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "훈수할 관전자 선택", true);
         dialog.setLayout(new BorderLayout(10, 10));
         dialog.setSize(300, 200);
         dialog.setLocationRelativeTo(this);
@@ -1078,8 +1149,16 @@ class GamePanel extends JPanel {
         reviewButton.setEnabled(false);
         prevButton.setEnabled(false);
         nextButton.setEnabled(false);
-        requestAdviceButton.setEnabled(false);
-        offerAdviceButton.setEnabled(false);
+
+        if (!isSpectator) {
+            requestAdviceButton.setVisible(true);
+            requestAdviceButton.setEnabled(false);
+            offerAdviceButton.setVisible(false);
+        } else {
+            requestAdviceButton.setVisible(false);
+            offerAdviceButton.setVisible(true);
+            offerAdviceButton.setEnabled(false);
+        }
 
         revalidate();
         repaint();
@@ -1115,6 +1194,15 @@ class GamePanel extends JPanel {
     public void updateTurn(String message) {
         turnLabel.setText(message);
         appendMessage("[턴] " + message);
+
+        // 현재 차례인 플레이어만 훈수 요청 버튼 활성화
+        if (!isSpectator) {
+            if (message.contains(client.getUid() + "님")) {
+                requestAdviceButton.setEnabled(true);
+            } else {
+                requestAdviceButton.setEnabled(false);
+            }
+        }
     }
 
     public void gameOver(String message) {
@@ -1130,9 +1218,20 @@ class GamePanel extends JPanel {
         messageArea.setCaretPosition(messageArea.getDocument().getLength());
     }
 
-    // Getters
-    public JButton getNextButton() { return nextButton; }
-    public JButton getPrevButton() { return prevButton; }
+    public void updatePlayerNames(String player1Name, String player2Name) {
+        player1Label.setText("● 흑돌: " + player1Name);
+        player2Label.setText("○ 백돌: " + player2Name);
+    }
+
+    public void updateSpectatorAvailability(boolean hasSpectators) {
+        if (!isSpectator) {
+            requestAdviceButton.setEnabled(hasSpectators);
+            if (!hasSpectators) {
+                appendMessage("[시스템] 현재 관전자가 없어 훈수를 요청할 수 없습니다.");
+            }
+        }
+    }
+
     public JButton getReviewButton() { return reviewButton; }
 
     // 복기 관련 메서드
