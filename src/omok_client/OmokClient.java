@@ -1055,10 +1055,10 @@ class GamePanel extends JPanel {
                     "게임 종료",
                     JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
+                client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_EXIT_ROOM, ""));
                 client.setCurrentIndex(-1);
                 client.setEndIndex(0);
                 resetGamePanel();
-                client.showView(OmokClient.WAITING_VIEW);
             }
         });
 

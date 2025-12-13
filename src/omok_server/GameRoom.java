@@ -98,7 +98,17 @@ public class GameRoom {
     // 플레이어가 방에서 퇴장 (게임 진행 중 퇴장 시 자동 기권)
     public synchronized void exitPlayer(Player player) {
         String playerId = player.getClientHandler().getUid();
-        boolean wasPlayer = players.contains(player);
+        boolean wasPlayer = false;
+
+        // 리스트를 돌면서 ID가 같은지 직접 확인
+        for (int i = 0; i < players.size(); i++) {
+            Player p = players.get(i);
+            if (p.getClientHandler().getUid().equals(playerId)) {
+                players.remove(i); // 리스트에서 제거
+                wasPlayer = true;  // 플레이어가 찾았으니 체크
+                break; // 찾았으니 루프 종료
+            }
+        }
 
         players.remove(player);
         spectators.remove(player);
