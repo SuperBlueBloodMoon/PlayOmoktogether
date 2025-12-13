@@ -14,6 +14,7 @@ public class GameRoom {
     private int currentTurn;               // 현재 턴 (0: 흑돌, 1: 백돌)
     private int[][] board;                 // 15x15 오목판 상태
     private GameRecord gameRecord;         // 게임 기록 (복기용)
+    private OmokRuleChecker ruleChecker; // 금수 확인
 
     // 훈수 시스템 관련
     private Map<String, Integer> adviceRequestCount;  // 플레이어별 훈수 요청 횟수
@@ -51,6 +52,7 @@ public class GameRoom {
         this.gameStarted = false;
         this.currentTurn = 0;
         this.board = new int[BOARD_SIZE][BOARD_SIZE];
+        this.ruleChecker = new OmokRuleChecker();
 
         // 훈수 시스템 초기화
         this.adviceRequestCount = new HashMap<>();
@@ -388,6 +390,32 @@ public class GameRoom {
         // 돌 놓기
         int color = (currentTurn == 0) ? BLACK : WHITE;
         board[y][x] = color;
+        if (color == BLACK) {
+            if (ruleChecker.isForbiddenMove(board, x, y)) {
+                // 금수 발견
+                OmokMsg forbiddenStoneMsg = new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, color);
+                broadcastGameRoom(forbiddenStoneMsg);
+
+                gameRecord.addPlayerMove(playerId, x, y);
+
+                // 상대방 승리 처리
+                String loserId = playerId;
+                String winnerId = players.get((currentTurn + 1) % 2).getClientHandler().getUid();
+
+                gameRecord.endGame(winnerId);
+                broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER,
+                        loserId + "님이 금수(반칙)를 두어 패배했습니다. " + winnerId + "님 승리!"));
+
+                server.updateUserStats(winnerId, true);
+                server.updateUserStats(loserId, false);
+
+                int count = gameRecord.getMoveCount();
+                broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_RESULT_COUNT, String.valueOf(count)));
+                gameStarted = false;
+
+                return true; // 게임이 종료되었으므로 true 반환
+            }
+        }
         gameRecord.addPlayerMove(playerId, x, y);
 
         // 훈수 절차 종료
