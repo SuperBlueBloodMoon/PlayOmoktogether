@@ -12,25 +12,27 @@ public class Player {
         this.client = client;
     }
 
+    // Getters
     public OmokServer.ClientHandler getClientHandler() {
         return client;
-    }
-    public void setIndex(int index) {
-        this.index = index;
     }
     public int getIndex() {
         return index;
     }
-    public void setColor(int color) {
-        this.color = color;
-    }
     public int getColor() {
         return color;
     }
-    public void setRole(Role role) {
-        this.role = role;
-    }
     public Role getRole() {
         return role;
+    }
+    // Setters
+    public void setColor(int color) {
+        this.color = color;
+    }
+    public void setIndex(int index) {
+        this.index = index;
+    }
+    public void setRole(Role role) {
+        this.role = role;
     }
 }

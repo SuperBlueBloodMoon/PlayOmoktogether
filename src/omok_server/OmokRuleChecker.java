@@ -10,7 +10,7 @@ public class OmokRuleChecker {
     private static final int[] DY = {0, 1, 1, -1};
 
     public boolean isForbiddenMove(int[][] board, int x, int y) {
-        // 주의: GameRoom에서 이미 board[y][x]에 흑돌(1)을 놓고 호출했다고 가정합니다.
+        // 주의: GameRoom에서 이미 board[y][x]에 흑돌(1)을 놓고 호출했다고 가정.
 
         // 1. 장목(Overline) 체크 (6목 이상)
         if (checkOverline(board, x, y)) {

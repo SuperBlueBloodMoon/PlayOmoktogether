@@ -21,10 +21,10 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 public class OmokClient extends JFrame {
-    private Socket socket;
-    private String serverAddress;
-    private int serverPort;
-    private ObjectOutputStream out;
+    private Socket socket; // 서버와의 연결을 관리하는 소켓
+    private String serverAddress; // 접속할 서버의 IP 주소
+    private int serverPort; // 서버의 포트 번호
+    private ObjectOutputStream out; // 서버로 데이터를 전송(직렬화)하는 출력 스트림
     private String uid;                           // 사용자 ID
     private CardLayout cardLayout = new CardLayout();
     private JPanel mainPanel = new JPanel(cardLayout);
@@ -175,11 +175,6 @@ public class OmokClient extends JFrame {
 
                             case OmokMsg.MODE_LOBBY_STRING:
                                 // 로비 채팅 메시지
-                                lobbyDisplay(msg.getUserID() + ": " + msg.getMessage());
-                                break;
-
-                            case OmokMsg.MODE_LOBBY_IMAGE:
-                                // 로비 이미지 메시지                 -이미지가 있어요 저희?
                                 lobbyDisplay(msg.getUserID() + ": " + msg.getMessage());
                                 break;
 
@@ -387,7 +382,7 @@ public class OmokClient extends JFrame {
                                 break;
 
                             case OmokMsg.MODE_CURRENT_COUNT:
-                                // 현재 복기
+                                // 현재 복기 - 현재까지 복기된 수의 카운트를 받아옴
                                 currentIndex = Integer.parseInt(msg.getMessage());
                                 break;
 
@@ -651,6 +646,8 @@ class LobbyPanel extends JPanel {
         JPanel inputPanel = new JPanel(new BorderLayout());
         JTextField chatInput = new JTextField();
         JButton sendButton = new JButton("보내기");
+
+        // 전송 버튼 클릭 시 입력된 메시지를 서버로 전송하고 입력창을 비움
         sendButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -658,6 +655,7 @@ class LobbyPanel extends JPanel {
                 chatInput.setText("");
             }
         });
+        // 입력창에서 엔터 키를 누르면 입력된 메시지를 서버로 전송하고 입력창을 비움
         chatInput.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -669,7 +667,7 @@ class LobbyPanel extends JPanel {
         JPanel controlPanel = new JPanel(new GridLayout(1, 2, 5, 0));
         JButton createButton = new JButton("방 만들기");
         JButton joinButton = new JButton("입장하기");
-
+        // 방 생성 로직
         createButton.addActionListener(new ActionListener() {
             @Override
            public void actionPerformed(ActionEvent e) {
@@ -688,6 +686,7 @@ class LobbyPanel extends JPanel {
                }
            }
         });
+        // 방 입장 로직
         joinButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -731,7 +730,7 @@ class LobbyPanel extends JPanel {
     public DefaultStyledDocument getDocuments() {
         return document;
     }
-
+    // 기존 목록을 지우고, 전적 정보가 있으면 포함하여 사용자 목록을 갱신
     public void updateUserList(String[] users) {
         userListModel.clear();
         for (String user : users) {
@@ -743,6 +742,7 @@ class LobbyPanel extends JPanel {
             userListModel.addElement(displayText);
         }
     }
+    // userStats 맵을 초기화하고 갱신
     public void updateUserStats(String[] stats) {
         userStats.clear();
         for (String stat : stats) {
@@ -752,6 +752,7 @@ class LobbyPanel extends JPanel {
             }
         }
     }
+    // 방 목록 배열을 사용하여 방 목록 모델을 갱신하고 상태를 표시
     public void updateRoomList(String[] rooms) {
         roomListModel.clear();
         if (rooms == null) return;
@@ -848,7 +849,7 @@ class WaitingRoomPanel extends JPanel {
                 }
             }
         });
-
+        // 전송 버튼 클릭 시 입력된 메시지를 서버로 전송하고 입력창을 비움
         sendButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -856,6 +857,7 @@ class WaitingRoomPanel extends JPanel {
                 chatInput.setText("");
             }
         });
+        // 입력창에서 엔터 키를 누르면 입력된 메시지를 서버로 전송하고 입력창을 비움
         chatInput.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -863,7 +865,7 @@ class WaitingRoomPanel extends JPanel {
                 chatInput.setText("");
             }
         });
-
+        // 대기방에서 로비로 나가기
         exitButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -875,6 +877,7 @@ class WaitingRoomPanel extends JPanel {
             }
         });
     }
+    // 기존 대화 내용을 지우기 위해 새 문서를 생성하여 적용
     public void clearChat() {
         document = new DefaultStyledDocument();
         chatArea.setDocument(document);
@@ -886,11 +889,12 @@ class WaitingRoomPanel extends JPanel {
     public DefaultStyledDocument getDocuments() {
         return document;
     }
-
+    // 방 제목과 방장 정보를 화면에 표시
     public void updateRoomInfo(String title, String owner) {
         String text = String.format("방 제목: %s\n방장: %s", title, owner);
         roomInfo.setText(text);
     }
+    // 현재 게임방에 참여 중인 플레이어 목록을 갱신
     public void updatePlayerInfo(String[] users) {
         playerListModel.clear();
         for (String user : users) {
@@ -1097,7 +1101,7 @@ class GamePanel extends JPanel {
 
         // 나가기
         exitButton.addActionListener(e -> {
-            if (confirmAction("게임을 종료하고 대기실로 돌아가시겠습니까?", "게임 종료")) {
+            if (confirmAction("게임을 종료하고 로비로 돌아가시겠습니까?", "게임 종료")) {
                 client.send(new OmokMsg(client.getUid(), OmokMsg.MODE_EXIT_ROOM, ""));
                 client.setCurrentIndex(-1);
                 client.setEndIndex(0);

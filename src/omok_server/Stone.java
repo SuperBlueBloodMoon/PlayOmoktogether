@@ -12,7 +12,7 @@ public class Stone {
         this.color = color;
         this.index = index;
     }
-
+    // Getters
     public int getIndex() {
         return index;
     }

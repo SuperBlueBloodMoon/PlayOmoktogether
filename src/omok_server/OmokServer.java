@@ -311,12 +311,6 @@ public class OmokServer extends JFrame {
                         printDisplay(message);
                         broadcastLobby(msg);
 
-                    } else if (msg.getMode() == OmokMsg.MODE_LOBBY_IMAGE) {
-                        // 로비 이미지 전송    - 우리 이미지가 있던가요?
-                        message = uid + ": " + msg.getMessage();
-                        printDisplay(message);
-                        broadcastLobby(msg);
-
                     } else if (msg.getMode() == OmokMsg.MODE_MAKE_ROOM) {
                         // 방 만들기
                         String roomTitle = msg.getMessage();
@@ -451,20 +445,19 @@ public class OmokServer extends JFrame {
 
                     } else if (msg.getMode() == OmokMsg.MODE_REPLAY_PREV) {
                         // 복기 - 이전 수
-                        int currentIndex = Integer.parseInt(msg.getCurrentIndex());
-                        int endIndex = Integer.parseInt(msg.getEndIndex());
+                        int currentIndex = Integer.parseInt(msg.getCurrentIndex()); // 현재의 Index 값을 받아오기
                         MoveRecord prevRecord;
-                        prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
-
+                        prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex); // Index 값에 해당하는 MoveRecord 객체 가져오기
+                        // 해당 객체의 ID 값이 Owner와 같은지 비교 후 알맞은 색을 선택해서 클라이언트에 전송
                         if (Objects.equals(prevRecord.getPlayerId(), this.myRoom.getOwner().getClientHandler().getUid())) {
                             send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV, prevRecord.getX(), prevRecord.getY(), 1));
                         } else {
                             send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV, prevRecord.getX(), prevRecord.getY(), 2));
                         }
-
-                        --currentIndex;
+                        --currentIndex; // Index 값을 하나 낮추기
                         if (currentIndex != -1) {
-                            prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
+                            prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex); // Index 값에 해당하는 MoveRecord 객체 가져오기
+                            // 반복문을 통해서 훈수에 대한 기록을 전부 클라이언트에 전송
                             while (prevRecord.isSpectator()) {
                                 send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_PREV, prevRecord.getX(), prevRecord.getY(), 3, prevRecord.getSpectatorColor()));
                                 --currentIndex;
@@ -474,30 +467,32 @@ public class OmokServer extends JFrame {
                                 prevRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
                             }
                         }
+                        // 현재까지 진행한 Index 값을 클라이언트에 전송
                         send(new OmokMsg("SERVER", OmokMsg.MODE_CURRENT_COUNT, String.valueOf(currentIndex)));
 
                     } else if (msg.getMode() == OmokMsg.MODE_REPLAY_NEXT) {
                         // 복기 - 다음 수
-                        int currentIndex = Integer.parseInt(msg.getCurrentIndex());
-                        int endIndex = Integer.parseInt(msg.getEndIndex());
-
+                        int currentIndex = Integer.parseInt(msg.getCurrentIndex()); // 현재의 Index 값을 받아오기
+                        int endIndex = Integer.parseInt(msg.getEndIndex()); // 해당 게임에 대한 마지막 수의 Index 값을 받아오기
+                        // 현재 수 Index가 마지막 수의 Index와 같지 않으면 진행
                         if (currentIndex != endIndex - 1) {
                             MoveRecord nextRecord;
                             ++currentIndex;
                             nextRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
-
+                            // 만약 현재의 수가 훈수이면 진행
                             while (nextRecord.isSpectator()) {
                                 send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 3, nextRecord.getSpectatorColor()));
                                 ++currentIndex;
                                 nextRecord = this.myRoom.getGameRecord().getAllMoves().get(currentIndex);
                             }
-
+                            // 해당 객체의 ID 값이 Owner와 같은지 비교 후 알맞은 색을 선택해서 클라이언트에 전송
                             if (Objects.equals(nextRecord.getPlayerId(), this.myRoom.getOwner().getClientHandler().getUid())) {
                                 send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 1));
                             } else {
                                 send(new OmokMsg("SERVER", OmokMsg.MODE_REPLAY_NEXT, nextRecord.getX(), nextRecord.getY(), 2));
                             }
                         }
+                        // 현재까지 진행한 Index 값을 클라이언트에 전송
                         send(new OmokMsg("SERVER", OmokMsg.MODE_CURRENT_COUNT, String.valueOf(currentIndex)));
 
                     } else if(msg.getMode() == OmokMsg.MODE_SURRENDER) {

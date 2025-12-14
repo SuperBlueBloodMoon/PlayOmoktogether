@@ -9,10 +9,11 @@ public class stoneList {
         this.stones = stones;
     }
 
+    // Getter
     public List<Stone> getStones() {
         return stones;
     }
-
+    // Setter
     public void addStone(Stone stone) {
         stones.add(stone);
     }
