@@ -45,11 +45,11 @@ public class omokBoardView extends JPanel {
                     MARGIN - 8 + i * cellSize, MARGIN + 14 * cellSize);
         }
 
-        // 화점 그리기 (선택사항)
+        // 화점 그리기
         drawStarPoints(g);
     }
 
-    // 화점(星) 표시 - 오목판의 주요 교차점
+    // 화점 표시 - 오목판의 주요 교차점
     private void drawStarPoints(Graphics g) {
         g.setColor(Color.BLACK);
         int[] starPositions = {3, 7, 11}; // 4번째, 8번째, 12번째 선
@@ -64,7 +64,7 @@ public class omokBoardView extends JPanel {
     }
 
     public void drawStone(Graphics g) {
-        if (board == null) return; // null 체크 추가
+        if (board == null) return;
 
         for (int y = 0; y < 15; y++) {
             for (int x = 0; x < 15; x++) {

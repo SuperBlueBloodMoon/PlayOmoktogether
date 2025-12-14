@@ -4,28 +4,13 @@ import omok_shared.OmokMsg;
 import java.util.*;
 
 public class GameRoom {
-    private String roomId;
-    private String title;
-    private Player owner;
-    private Vector<Player> players;        // 게임 참여 플레이어 (최대 2명)
-    private Vector<Player> spectators;     // 관전자 목록
-    private OmokServer server;
-    private boolean gameStarted;           // 게임 시작 여부
-    private int currentTurn;               // 현재 턴 (0: 흑돌, 1: 백돌)
-    private int[][] board;                 // 15x15 오목판 상태
-    private GameRecord gameRecord;         // 게임 기록 (복기용)
-    private OmokRuleChecker ruleChecker; // 금수 확인
+    private static final int BOARD_SIZE = 15;
+    private static final int BLACK = 1;
+    private static final int WHITE = 2;
+    private static final int MAX_ADVICE_REQUESTS = 5;  // 게임당 최대 훈수 요청 횟수
 
-    // 훈수 시스템 관련
-    private Map<String, Integer> adviceRequestCount;  // 플레이어별 훈수 요청 횟수
-    private static final int MAX_ADVICE_REQUESTS = 5; // 게임당 최대 훈수 요청 횟수
-    private String currentAdviceRequester;            // 현재 훈수 요청한 플레이어 ID
-    private Set<String> adviceOffers;                 // 훈수 제공 의사를 밝힌 관전자들
-    private Map<String, Integer> spectatorColors;     // 관전자별 고유 색상 (훈수 표시용)
-    private String selectedAdvisor;                   // 선택된 관전자 ID
-
-    // 관전자 훈수 표시용 색상
-    private static final int[][] COLOR = {
+    // 관전자 훈수 표시용 색상 (RGB)
+    private static final int[][] SPECTATOR_COLORS = {
             {255, 0, 0},      // 빨강
             {0, 0, 255},      // 파랑
             {0, 200, 0},      // 초록
@@ -36,19 +21,43 @@ public class GameRoom {
             {255, 255, 0}     // 노랑
     };
 
-    private static final int BOARD_SIZE = 15;
-    private static final int BLACK = 1;
-    private static final int WHITE = 2;
+    // 방 기본 정보
+    private String roomId;
+    private String title;
+    private Player owner;
+    private OmokServer server;
 
-    // 게임 방 생성자
+    // 참가자
+    private Vector<Player> players;        // 게임 참여 플레이어 (최대 2명)
+    private Vector<Player> spectators;     // 관전자 목록
+
+    // 게임 상태
+    private boolean gameStarted;           // 게임 시작 여부
+    private int currentTurn;               // 현재 턴 (0: 흑돌, 1: 백돌)
+    private int[][] board;                 // 오목판 상태
+    private GameRecord gameRecord;         // 게임 기록 (복기용)
+    private OmokRuleChecker ruleChecker;   // 금수 확인
+
+    // 훈수 시스템
+    private Map<String, Integer> adviceRequestCount;  // 플레이어별 훈수 요청 횟수
+    private String currentAdviceRequester;            // 현재 훈수 요청한 플레이어 ID
+    private Set<String> adviceOffers;                 // 훈수 요청에 응답한 관전자들
+    private Map<String, Integer> spectatorColors;     // 관전자별 고유 색상
+    private String selectedAdvisor;                   // 선택된 관전자 ID
+
+    // 생성자
     public GameRoom(String title, Player owner, OmokServer server) {
         this.roomId = UUID.randomUUID().toString();
         this.title = title;
         this.owner = owner;
         this.server = server;
+
+        // 플레이어 초기화
         this.players = new Vector<>();
         this.spectators = new Vector<>();
         this.players.add(owner);
+
+        // 게임 상태 초기화
         this.gameStarted = false;
         this.currentTurn = 0;
         this.board = new int[BOARD_SIZE][BOARD_SIZE];
@@ -59,6 +68,9 @@ public class GameRoom {
         this.adviceOffers = new HashSet<>();
         this.spectatorColors = new HashMap<>();
     }
+
+    // 플레이어/관전자 입퇴장 관리
+    // =======================================================================================
 
     // 플레이어가 방에 입장
     public synchronized boolean enterPlayer(Player player) {
@@ -75,22 +87,19 @@ public class GameRoom {
             spectators.add(player);
             assignSpectatorColor(player.getClientHandler().getUid());
             player.getClientHandler().send(
-                    new OmokMsg("SERVER", OmokMsg.MODE_WAITING_STRING,
-                            "관전자로 입장하였습니다.")
+                    new OmokMsg("SERVER", OmokMsg.MODE_WAITING_STRING, "관전자로 입장하였습니다.")
             );
         }
         return true;
     }
 
-    // 관전자에게 고유 색상 할당
+    // 관전자에게 고유 색상 할당 (훈수 표시용)
     private void assignSpectatorColor(String spectatorId) {
         if (!spectatorColors.containsKey(spectatorId)) {
-            // 관전자 수에 따라 차례대로 색상 할당
-            int colorIndex = spectatorColors.size() % COLOR.length;
-            // RGB를 정수로
-            int colorCode = (COLOR[colorIndex][0] << 16) |
-                    (COLOR[colorIndex][1] << 8) |
-                    COLOR[colorIndex][2];
+            int colorIndex = spectatorColors.size() % SPECTATOR_COLORS.length;
+            int colorCode = (SPECTATOR_COLORS[colorIndex][0] << 16) |
+                    (SPECTATOR_COLORS[colorIndex][1] << 8) |
+                    SPECTATOR_COLORS[colorIndex][2];
             spectatorColors.put(spectatorId, colorCode);
         }
     }
@@ -100,7 +109,7 @@ public class GameRoom {
         String playerId = player.getClientHandler().getUid();
         boolean wasPlayer = false;
 
-        // 리스트를 돌면서 ID가 같은지 직접 확인
+        // 플레이어 목록에서 제거
         for (int i = 0; i < players.size(); i++) {
             Player p = players.get(i);
             if (p.getClientHandler().getUid().equals(playerId)) {
@@ -110,35 +119,13 @@ public class GameRoom {
             }
         }
 
-        players.remove(player);
+        // 관전자 목록에서도 제거 시도
         spectators.remove(player);
         spectatorColors.remove(playerId);
 
         // 게임 진행 중에 플레이어가 나가면 자동 기권 처리
         if (gameStarted && wasPlayer) {
-            // 남은 플레이어를 승자로 설정
-            String winnerId = null;
-            for (Player p : players) {
-                if (!p.getClientHandler().getUid().equals(playerId)) {
-                    winnerId = p.getClientHandler().getUid();
-                    break;
-                }
-            }
-
-            if (winnerId != null) {
-                gameRecord.endGame(winnerId);
-                String message = playerId + "님이 연결이 끊어졌습니다. " + winnerId + "님이 승리했습니다!";
-                broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER, message));
-
-                // 전적 업데이트
-                server.updateUserStats(winnerId, true);
-                server.updateUserStats(playerId, false);
-
-                // 복기
-                int count = gameRecord.getMoveCount();
-                broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_RESULT_COUNT, String.valueOf(count)));
-                gameStarted = false;
-            }
+            handlePlayerDisconnect(playerId);
         }
 
         // 방에 아무도 없으면 방 삭제
@@ -149,9 +136,30 @@ public class GameRoom {
             owner = players.get(0);
         }
 
-        // 관전자 수 변경 알림
         notifySpectatorCount();
     }
+
+    // 플레이어 연결 끊김 처리 (자동 기권)
+    private void handlePlayerDisconnect(String playerId) {
+        String winnerId = findOpponentId(playerId);
+
+        if (winnerId != null) {
+            gameRecord.endGame(winnerId);
+            String message = playerId + "님이 연결이 끊어졌습니다. " + winnerId + "님이 승리했습니다!";
+            broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER, message));
+
+            // 전적 업데이트
+            server.updateUserStats(winnerId, true);
+            server.updateUserStats(playerId, false);
+
+            // 복기용 수 개수 전송
+            sendMoveCount();
+            gameStarted = false;
+        }
+    }
+
+    // 게임 시작 및 상태 관리
+    // ======================================================================================
 
     // 게임 시작 처리
     public synchronized void startGame() {
@@ -165,6 +173,23 @@ public class GameRoom {
         }
 
         // 게임 상태 초기화
+        initGame();
+
+        // 관전자 설정
+        setupSpectators();
+
+        // 모든 참가자에게 게임 시작 알림
+        broadcastGameStart();
+
+        // 첫 턴 알림
+        broadcastTurn();
+
+        // 로비에 방 목록 갱신 (게임중 상태 표시)
+        server.broadcastRoomListToAll();
+    }
+
+    // 게임 상태 초기화
+    private void initGame() {
         gameStarted = true;
         currentTurn = 0;
         board = new int[BOARD_SIZE][BOARD_SIZE];
@@ -178,19 +203,26 @@ public class GameRoom {
 
         // 게임 기록 시작
         gameRecord = new GameRecord(player1Id, player2Id);
+    }
 
-        // 관전자들 설정
+    // 관전자 설정
+    private void setupSpectators() {
         for (Player spectator : spectators) {
             String spectatorId = spectator.getClientHandler().getUid();
             assignSpectatorColor(spectatorId);
-            OmokMsg spectatorMsg = new OmokMsg("SERVER", OmokMsg.MODE_WAITING_STRING, "SPECTATOR");
-            spectator.getClientHandler().send(spectatorMsg);
+            spectator.getClientHandler().send(
+                    new OmokMsg("SERVER", OmokMsg.MODE_WAITING_STRING, "SPECTATOR")
+            );
         }
+    }
 
-        // 모든 참가자에게 게임 시작 알림
+    // 게임 시작 브로드캐스트
+    private void broadcastGameStart() {
         broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_START, "SUCCESS"));
 
         // 플레이어 정보와 전적 전송
+        String player1Id = players.get(0).getClientHandler().getUid();
+        String player2Id = players.get(1).getClientHandler().getUid();
         String player1Stats = server.getUserStatsString(player1Id);
         String player2Stats = server.getUserStatsString(player2Id);
         String playerInfo = player1Id + player1Stats + "|" + player2Id + player2Stats;
@@ -198,35 +230,144 @@ public class GameRoom {
 
         // 관전자 수 알림
         notifySpectatorCount();
-
-        // 첫 턴 알림
-        broadcastTurn();
-
-        // 로비에 방 목록 갱신 (게임중 상태 표시)
-        server.broadcastRoomListToAll();
     }
+
+    // 게임 진행 (돌 놓기)
+    // ================================================================================
+
+    // 플레이어가 돌을 놓음 처리
+    public synchronized boolean placeStone(String playerId, int x, int y) {
+        if (!gameStarted) return false;
+
+        // 현재 턴 플레이어인지 확인
+        Player currentPlayer = players.get(currentTurn);
+        if (!currentPlayer.getClientHandler().getUid().equals(playerId)) {
+            return false;
+        }
+
+        // 유효한 위치인지 확인
+        if (!isValidPosition(x, y)) {
+            return false;
+        }
+
+        // 돌 놓기
+        int color = (currentTurn == 0) ? BLACK : WHITE;
+        board[y][x] = color;
+
+        // 흑돌인 경우 금수 체크
+        if (color == BLACK && ruleChecker.isForbiddenMove(board, x, y)) {
+            return handleForbiddenMove(playerId, x, y);
+        }
+
+        // 정상 수 기록
+        gameRecord.addPlayerMove(playerId, x, y);
+        clearAdviceState();
+
+        // 모든 참가자에게 돌이 놓인 위치 전송
+        broadcastGameRoom(new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, color));
+
+        // 승리 조건 확인
+        if (checkWin(x, y, color)) {
+            return handleGameWin(playerId);
+        }
+
+        // 턴 변경
+        currentTurn = (currentTurn + 1) % 2;
+        broadcastTurn();
+        return true;
+    }
+
+    // 유효한 위치인지 확인
+    private boolean isValidPosition(int x, int y) {
+        return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE && board[y][x] == 0;
+    }
+
+    // 금수 처리
+    private boolean handleForbiddenMove(String playerId, int x, int y) {
+        // 금수 돌 브로드캐스트
+        broadcastGameRoom(new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, BLACK));
+        gameRecord.addPlayerMove(playerId, x, y);
+
+        // 상대방 승리 처리
+        String winnerId = findOpponentId(playerId);
+        gameRecord.endGame(winnerId);
+        broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER,
+                playerId + "님이 금수(반칙)를 두어 패배했습니다. " + winnerId + "님 승리!"));
+
+        updateStatsAndFinish(winnerId, playerId);
+        return true;
+    }
+
+    // 게임 승리 처리
+    private boolean handleGameWin(String playerId) {
+        gameRecord.endGame(playerId);
+        broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER,
+                playerId + "님이 승리하였습니다!"));
+
+        String loserId = findOpponentId(playerId);
+        updateStatsAndFinish(playerId, loserId);
+        return true;
+    }
+
+    // 전적 업데이트 및 게임 종료
+    private void updateStatsAndFinish(String winnerId, String loserId) {
+        server.updateUserStats(winnerId, true);
+        server.updateUserStats(loserId, false);
+        sendMoveCount();
+        gameStarted = false;
+    }
+
+    // 복기를 위한 수 개수 전송
+    private void sendMoveCount() {
+        int count = gameRecord.getMoveCount();
+        broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_RESULT_COUNT, String.valueOf(count)));
+    }
+
+    // 승리 조건 확인
+    // ============================================================================================================
+
+    // 승리 조건 확인 (5개 연속)
+    private boolean checkWin(int x, int y, int color) {
+        int[][] directions = {{1,0}, {0,1}, {1,1}, {1,-1}};
+        for (int[] dir : directions) {
+            int count = 1;
+            count += countStones(x, y, dir[0], dir[1], color);
+            count += countStones(x, y, -dir[0], -dir[1], color);
+            if (count >= 5) return true;
+        }
+        return false;
+    }
+
+    // 특정 방향으로 연속된 돌 개수 세기
+    private int countStones(int x, int y, int dx, int dy, int color) {
+        int count = 0;
+        int nx = x + dx;
+        int ny = y + dy;
+        while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE &&
+                board[ny][nx] == color) {
+            count++;
+            nx += dx;
+            ny += dy;
+        }
+        return count;
+    }
+
+    // 훈수 시스템
+    // =======================================================================================
 
     // 플레이어가 훈수 요청
     public synchronized void requestAdvice(String playerId) {
         if (!gameStarted) return;
 
         // 현재 턴 플레이어인지 확인
-        Player currentPlayer = players.get(currentTurn);
-        if (!currentPlayer.getClientHandler().getUid().equals(playerId)) {
-            // 요청한 플레이어에게 거절 메시지 전송
-            Player requester = findPlayerByUid(playerId);
-            if (requester != null) {
-                requester.getClientHandler().send(
-                        new OmokMsg("SERVER", OmokMsg.MODE_GAME_CHAT,
-                                "자신의 차례일 때만 훈수를 요청할 수 있습니다.")
-                );
-            }
+        if (!isCurrentPlayer(playerId)) {
+            sendMessage(playerId, "자신의 차례일 때만 훈수를 요청할 수 있습니다.");
             return;
         }
 
         // 훈수 요청 횟수 초과 확인
-        int requestCount = adviceRequestCount.getOrDefault(playerId, 0);
-        if (requestCount >= MAX_ADVICE_REQUESTS) {
+        if (isAdviceLimitExceeded(playerId)) {
+            Player currentPlayer = findPlayerByUid(playerId);
             currentPlayer.getClientHandler().send(
                     new OmokMsg("SERVER", OmokMsg.MODE_ADVICE_LIMIT_EXCEEDED,
                             "훈수 요청 횟수를 모두 사용했습니다. (최대 " + MAX_ADVICE_REQUESTS + "회)")
@@ -236,59 +377,104 @@ public class GameRoom {
 
         // 관전자 존재 여부 확인
         if (spectators.isEmpty()) {
-            currentPlayer.getClientHandler().send(
-                    new OmokMsg("SERVER", OmokMsg.MODE_GAME_CHAT,
-                            "현재 관전자가 없습니다.")
-            );
+            sendMessage(playerId, "현재 관전자가 없습니다.");
             return;
         }
 
         // 훈수 요청 상태 저장
-        currentAdviceRequester = playerId;
-        adviceOffers.clear();
-        selectedAdvisor = null;
+        startAdviceRequest(playerId);
 
         // 모든 관전자에게 훈수 요청 알림
-        OmokMsg adviceRequest = new OmokMsg("SERVER", OmokMsg.MODE_ADVICE_REQUEST_BROADCAST,
-                playerId + "님이 훈수를 요청했습니다. 훈수를 제공하시겠습니까?");
-        for (Player spectator : spectators) {
-            spectator.getClientHandler().send(adviceRequest);
-        }
+        broadcastAdviceRequest(playerId);
 
         // 요청자에게 대기 메시지
-        currentPlayer.getClientHandler().send(
-                new OmokMsg("SERVER", OmokMsg.MODE_GAME_CHAT,
-                        "관전자들의 응답을 기다리는 중입니다... (남은 횟수: " +
-                                (MAX_ADVICE_REQUESTS - requestCount - 1) + "회)")
-        );
+        sendAdviceWaitMessage(playerId);
     }
 
     // 관전자가 훈수 제공 의사 표시
     public synchronized void offerAdvice(String spectatorId) {
         if (currentAdviceRequester == null) return;
+        if (!isSpectator(spectatorId)) return;
 
-        // 관전자인지 확인
-        boolean isSpectator = false;
-        for (Player spec : spectators) {
-            if (spec.getClientHandler().getUid().equals(spectatorId)) {
-                isSpectator = true;
-                break;
-            }
-        }
-        if (!isSpectator) return;
-
-        // 제공 의사 목록에 추가
         adviceOffers.add(spectatorId);
-
-        // 요청자에게 업데이트된 목록 전송
         sendAdviceOffersList();
     }
 
-    // 훈수 제공 의사를 밝힌 관전자 목록을 요청자에게 전송
+    // 플레이어가 훈수해줄 관전자 선택
+    public synchronized void selectAdvisor(String playerId, String advisorId) {
+        if (!playerId.equals(currentAdviceRequester)) return;
+        if (!adviceOffers.contains(advisorId)) return;
+
+        selectedAdvisor = advisorId;
+        adviceRequestCount.put(playerId, adviceRequestCount.get(playerId) + 1);
+
+        // 선택된 관전자에게 알림
+        notifySelectedAdvisor(playerId, advisorId);
+
+        // 요청자에게 알림
+        notifyRequester(playerId, advisorId);
+
+        // 선택되지 않은 관전자들에게 알림
+        notifyUnselectedAdvisors(advisorId);
+    }
+
+    // 관전자의 훈수 처리
+    public synchronized void handleSuggestion(String spectatorId, int x, int y) {
+        if (!gameStarted) return;
+
+        // 선택된 관전자인지 확인
+        if (!isSelectedAdvisor(spectatorId)) {
+            sendMessage(spectatorId, "현재 훈수가 선택되지 않았습니다.");
+            return;
+        }
+
+        // 현재 턴 플레이어에게 훈수 전송
+        Player currentPlayer = players.get(currentTurn);
+        int adviceColor = spectatorColors.getOrDefault(spectatorId, 0xFF0000);
+        gameRecord.addSpectatorSuggestion(spectatorId, x, y, adviceColor);
+
+        OmokMsg suggestionMsg = new OmokMsg(spectatorId, OmokMsg.MODE_SUGGESTION_RECEIVED, x, y, 3);
+        suggestionMsg.setAdviceColor(adviceColor);
+        currentPlayer.getClientHandler().send(suggestionMsg);
+    }
+
+    // --- 훈수 시스템 메서드 ---
+    private boolean isCurrentPlayer(String playerId) {
+        Player currentPlayer = players.get(currentTurn);
+        return currentPlayer.getClientHandler().getUid().equals(playerId);
+    }
+
+    private boolean isAdviceLimitExceeded(String playerId) {
+        int requestCount = adviceRequestCount.getOrDefault(playerId, 0);
+        return requestCount >= MAX_ADVICE_REQUESTS;
+    }
+
+    private void startAdviceRequest(String playerId) {
+        currentAdviceRequester = playerId;
+        adviceOffers.clear();
+        selectedAdvisor = null;
+    }
+
+    private void broadcastAdviceRequest(String playerId) {
+        OmokMsg adviceRequest = new OmokMsg("SERVER", OmokMsg.MODE_ADVICE_REQUEST_BROADCAST,
+                playerId + "님이 훈수를 요청했습니다. 훈수를 제공하시겠습니까?");
+        for (Player spectator : spectators) {
+            spectator.getClientHandler().send(adviceRequest);
+        }
+    }
+
+    private void sendAdviceWaitMessage(String playerId) {
+        Player currentPlayer = findPlayerByUid(playerId);
+        int remaining = MAX_ADVICE_REQUESTS - adviceRequestCount.getOrDefault(playerId, 0) - 1;
+        currentPlayer.getClientHandler().send(
+                new OmokMsg("SERVER", OmokMsg.MODE_GAME_CHAT,
+                        "관전자들의 응답을 기다리는 중입니다... (남은 횟수: " + remaining + "회)")
+        );
+    }
+
     private void sendAdviceOffersList() {
         if (currentAdviceRequester == null) return;
 
-        // 관전자 ID를 쉼표로 구분하여 문자열 생성
         StringBuilder offersList = new StringBuilder();
         for (String advisorId : adviceOffers) {
             if (offersList.length() > 0) offersList.append(",");
@@ -303,17 +489,7 @@ public class GameRoom {
         }
     }
 
-    // 플레이어가 훈수해줄 관전자 선택
-    public synchronized void selectAdvisor(String playerId, String advisorId) {
-        if (!playerId.equals(currentAdviceRequester)) return;
-        if (!adviceOffers.contains(advisorId)) return;
-
-        selectedAdvisor = advisorId;
-
-        // 훈수 요청 횟수 증가
-        adviceRequestCount.put(playerId, adviceRequestCount.get(playerId) + 1);
-
-        // 선택된 관전자에게 알림
+    private void notifySelectedAdvisor(String playerId, String advisorId) {
         Player advisor = findSpectatorByUid(advisorId);
         if (advisor != null) {
             OmokMsg selectedMsg = new OmokMsg("SERVER", OmokMsg.MODE_ADVICE_SELECTED,
@@ -321,8 +497,9 @@ public class GameRoom {
             selectedMsg.setAdvisorId(advisorId);
             advisor.getClientHandler().send(selectedMsg);
         }
+    }
 
-        // 요청자에게 알림
+    private void notifyRequester(String playerId, String advisorId) {
         Player requester = findPlayerByUid(playerId);
         if (requester != null) {
             OmokMsg requesterMsg = new OmokMsg("SERVER", OmokMsg.MODE_ADVICE_SELECTED,
@@ -330,10 +507,11 @@ public class GameRoom {
             requesterMsg.setAdvisorId(advisorId);
             requester.getClientHandler().send(requesterMsg);
         }
+    }
 
-        // 선택되지 않은 관전자들에게 알림
+    private void notifyUnselectedAdvisors(String selectedAdvisorId) {
         for (String offerId : adviceOffers) {
-            if (!offerId.equals(advisorId)) {
+            if (!offerId.equals(selectedAdvisorId)) {
                 Player otherAdvisor = findSpectatorByUid(offerId);
                 if (otherAdvisor != null) {
                     otherAdvisor.getClientHandler().send(
@@ -345,121 +523,18 @@ public class GameRoom {
         }
     }
 
-    // 관전자의 훈수 처리  (선택된 관전자만 훈수 가능)
-    public synchronized void handleSuggestion(String spectatorId, int x, int y) {
-        if (!gameStarted) return;
-
-        // 선택된 관전자인지 확인
-        if (selectedAdvisor == null) {
-            Player spec = findSpectatorByUid(spectatorId);
-            if (spec != null) {
-                spec.getClientHandler().send(
-                        new OmokMsg("SERVER", OmokMsg.MODE_GAME_CHAT,
-                                "현재 훈수가 선택되지 않았습니다.")
-                );
-            }
-            return;
-        }
-
-        if (!selectedAdvisor.equals(spectatorId)) {
-            Player spec = findSpectatorByUid(spectatorId);
-            if (spec != null) {
-                spec.getClientHandler().send(
-                        new OmokMsg("SERVER", OmokMsg.MODE_GAME_CHAT,
-                                "당신이 선택되지 않았습니다. 선택된 관전자: " + selectedAdvisor)
-                );
-            }
-            return;
-        }
-
-        // 현재 턴 플레이어에게 훈수 전송
-        Player currentPlayer = players.get(currentTurn);
-        int adviceColor = spectatorColors.getOrDefault(spectatorId, 0xFF0000);
-        gameRecord.addSpectatorSuggestion(spectatorId, x, y, adviceColor);
-
-        OmokMsg suggestionMsg = new OmokMsg(spectatorId, OmokMsg.MODE_SUGGESTION_RECEIVED, x, y, 3);
-        suggestionMsg.setAdviceColor(adviceColor);
-        currentPlayer.getClientHandler().send(suggestionMsg);
+    private boolean isSelectedAdvisor(String spectatorId) {
+        return selectedAdvisor != null && selectedAdvisor.equals(spectatorId);
     }
 
-    // 플레이어가 돌을 놓음  return으로 성공 여부
-    public synchronized boolean placeStone(String playerId, int x, int y) {
-        if (!gameStarted) return false;
-
-        // 현재 턴 플레이어인지 확인
-        Player currentPlayer = players.get(currentTurn);
-        if (!currentPlayer.getClientHandler().getUid().equals(playerId)) {
-            return false;
-        }
-
-        // 유효한 위치인지 확인
-        if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE || board[y][x] != 0) {
-            return false;
-        }
-
-        // 돌 놓기
-        int color = (currentTurn == 0) ? BLACK : WHITE;
-        board[y][x] = color;
-        if (color == BLACK) {
-            if (ruleChecker.isForbiddenMove(board, x, y)) {
-                // 금수 발견
-                OmokMsg forbiddenStoneMsg = new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, color);
-                broadcastGameRoom(forbiddenStoneMsg);
-
-                gameRecord.addPlayerMove(playerId, x, y);
-
-                // 상대방 승리 처리
-                String loserId = playerId;
-                String winnerId = players.get((currentTurn + 1) % 2).getClientHandler().getUid();
-
-                gameRecord.endGame(winnerId);
-                broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER,
-                        loserId + "님이 금수(반칙)를 두어 패배했습니다. " + winnerId + "님 승리!"));
-
-                server.updateUserStats(winnerId, true);
-                server.updateUserStats(loserId, false);
-
-                int count = gameRecord.getMoveCount();
-                broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_RESULT_COUNT, String.valueOf(count)));
-                gameStarted = false;
-
-                return true; // 게임이 종료되었으므로 true 반환
-            }
-        }
-        gameRecord.addPlayerMove(playerId, x, y);
-
-        // 훈수 절차 종료
+    private void clearAdviceState() {
         currentAdviceRequester = null;
         selectedAdvisor = null;
         adviceOffers.clear();
-
-        // 모든 참가자에게 돌이 놓인 위치 전송
-        OmokMsg stonePlacedMsg = new OmokMsg(playerId, OmokMsg.MODE_STONE_PLACED, x, y, color);
-        broadcastGameRoom(stonePlacedMsg);
-
-        // 승리 조건 확인
-        if (checkWin(x, y, color)) {
-            gameRecord.endGame(playerId);
-            broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER,
-                    playerId + "님이 승리하였습니다!"));
-
-            // 전적 업데이트
-            String loserId = players.get((currentTurn + 1) % 2).getClientHandler().getUid();
-            server.updateUserStats(playerId, true);
-            server.updateUserStats(loserId, false);
-
-            // 복기를 위한 전송
-            int count = gameRecord.getMoveCount();
-            broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_RESULT_COUNT, String.valueOf(count)));
-            gameStarted = false;
-            return true;
-        }
-
-        // 턴 변경
-        currentTurn = (currentTurn + 1) % 2;
-        broadcastTurn();
-        return true;
     }
+
+    // 기권 처리
+    // ====================================================================================
 
     // 플레이어 기권 처리
     public synchronized void handleSurrender(String playerId) {
@@ -468,71 +543,18 @@ public class GameRoom {
         Player surrenderer = findPlayerByUid(playerId);
         if (surrenderer == null) return;
 
-        // 상대방을 승자로 설정
-        String winnerId = null;
-        for (Player p : players) {
-            if (!p.getClientHandler().getUid().equals(playerId)) {
-                winnerId = p.getClientHandler().getUid();
-                break;
-            }
-        }
-
+        String winnerId = findOpponentId(playerId);
         if (winnerId != null) {
             gameRecord.endGame(winnerId);
             String message = playerId + "님이 기권했습니다. " + winnerId + "님이 승리했습니다!";
             broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_GAME_OVER, message));
 
-            // 전적 업데이트
-            server.updateUserStats(winnerId, true);
-            server.updateUserStats(playerId, false);
-
-            // 복기를 위한 전송
-            int count = gameRecord.getMoveCount();
-            broadcastGameRoom(new OmokMsg("SERVER", OmokMsg.MODE_RESULT_COUNT, String.valueOf(count)));
-            gameStarted = false;
+            updateStatsAndFinish(winnerId, playerId);
         }
     }
 
-    // UID로 플레이어 찾기
-    private Player findPlayerByUid(String uid) {
-        for (Player p : players) {
-            if (p.getClientHandler().getUid().equals(uid)) return p;
-        }
-        return null;
-    }
-
-    // UID로 관전자 찾기
-    private Player findSpectatorByUid(String uid) {
-        for (Player s : spectators) {
-            if (s.getClientHandler().getUid().equals(uid)) return s;
-        }
-        return null;
-    }
-
-    // 승리 조건 확인 (5개 연속)
-    private boolean checkWin(int x, int y, int color) {
-        int[][] directions = {{1,0}, {0,1}, {1,1}, {1,-1}};
-        for (int[] dir : directions) {
-            int count = 1;
-            count += countStones(x, y, dir[0], dir[1], color);
-            count += countStones(x, y, -dir[0], -dir[1], color);
-            if (count >= 5) return true;
-        }
-        return false;
-    }
-
-    private int countStones(int x, int y, int dx, int dy, int color) {
-        int count = 0;
-        int nx = x + dx;
-        int ny = y + dy;
-        while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE &&
-                board[ny][nx] == color) {
-            count++;
-            nx += dx;
-            ny += dy;
-        }
-        return count;
-    }
+    // 기타 메서드
+    // ==========================================================================
 
     // 현재 턴 정보를 모든 참가자에게 전송
     private void broadcastTurn() {
@@ -552,15 +574,40 @@ public class GameRoom {
         }
     }
 
-    // 클라이언트에 표시할 참가자 목록 문자열 생성
+    // 특정 사용자에게 메시지 전송
+    private void sendMessage(String uid, String message) {
+        Player player = findPlayerByUid(uid);
+        if (player == null) player = findSpectatorByUid(uid);
+        if (player != null) {
+            player.getClientHandler().send(
+                    new OmokMsg("SERVER", OmokMsg.MODE_GAME_CHAT, message)
+            );
+        }
+    }
 
+    // 플레이어들에게 관전자 수 알림
+    private void notifySpectatorCount() {
+        if (gameStarted) {
+            OmokMsg countMsg = new OmokMsg("SERVER", OmokMsg.MODE_SPECTATOR_COUNT,
+                    String.valueOf(spectators.size()));
+            for (Player player : players) {
+                player.getClientHandler().send(countMsg);
+            }
+        }
+    }
+
+    // 클라이언트에 표시할 참가자 목록 문자열 생성
     public String getPlayersForClient() {
         StringBuilder sb = new StringBuilder();
+
+        // 플레이어 목록
         for (int i = 0; i < players.size(); i++) {
             if (i > 0) sb.append(",");
             sb.append(players.get(i).getClientHandler().getUid());
             sb.append(" [플레이어]");
         }
+
+        // 관전자 목록
         if (!spectators.isEmpty()) {
             sb.append(",");
             for (int i = 0; i < spectators.size(); i++) {
@@ -572,22 +619,44 @@ public class GameRoom {
         return sb.toString();
     }
 
-    // 플레이어들에게 관전자 수 알림. 관전자가 있어야 훈수 요청 가능
-
-    private void notifySpectatorCount() {
-        if (gameStarted) {
-            OmokMsg countMsg = new OmokMsg("SERVER", OmokMsg.MODE_SPECTATOR_COUNT,
-                    String.valueOf(spectators.size()));
-            for (Player player : players) {
-                player.getClientHandler().send(countMsg);
-            }
+    // UID로 플레이어 찾기
+    private Player findPlayerByUid(String uid) {
+        for (Player p : players) {
+            if (p.getClientHandler().getUid().equals(uid)) return p;
         }
+        return null;
     }
 
+    // UID로 관전자 찾기
+    private Player findSpectatorByUid(String uid) {
+        for (Player s : spectators) {
+            if (s.getClientHandler().getUid().equals(uid)) return s;
+        }
+        return null;
+    }
+
+    // 상대방 ID 찾기
+    private String findOpponentId(String playerId) {
+        for (Player p : players) {
+            if (!p.getClientHandler().getUid().equals(playerId)) {
+                return p.getClientHandler().getUid();
+            }
+        }
+        return null;
+    }
+
+    // 관전자인지 확인
+    private boolean isSpectator(String uid) {
+        return findSpectatorByUid(uid) != null;
+    }
+
+    // Getters
+    // ======================================================================================
 
     public String getRoomStatus() {
         return gameStarted ? "게임중" : "대기중";
     }
+
     public String getRoomId() { return roomId; }
     public String getTitle() { return title; }
     public Player getOwner() { return owner; }
