@@ -1,5 +1,5 @@
 package omok_server;
-
+// 외부 참조 코드
 public class OmokRuleChecker {
 
     private static final int BLACK = 1;
