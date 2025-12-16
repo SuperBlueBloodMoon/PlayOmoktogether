@@ -458,7 +458,7 @@ public class OmokClient extends JFrame {
         }
     }
 
-    // server.txt 파일에서 서버 설정 로드  - 여기도 이제 바꾸면 될듯
+    // server.txt 파일에서 서버 설정 로드
     private static String[] loadServerConfig() {
         String fileName = "server.txt";
         String defaultIp = "127.0.0.1";
