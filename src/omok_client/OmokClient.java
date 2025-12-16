@@ -129,7 +129,7 @@ public class OmokClient extends JFrame {
             sendUserID(userID);
 
             // 로비 화면으로 전환
-            SwingUtilities.invokeLater(() -> {
+            SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                 showView(LOBBY_VIEW);
             });
 
@@ -181,7 +181,7 @@ public class OmokClient extends JFrame {
                             case OmokMsg.MODE_ROOM_ENTERED:
                                 // 방 입장 성공 -> 대기실 화면으로 전환
                                 waitingRoomPanel.clearChat();
-                                SwingUtilities.invokeLater(() -> showView(WAITING_VIEW));
+                                SwingUtilities.invokeLater(() -> showView(WAITING_VIEW));             //<<외부 참조>>
                                 break;
 
                             case OmokMsg.MODE_REFRESH_ROOM_LIST:
@@ -211,7 +211,7 @@ public class OmokClient extends JFrame {
                                 // 방 나가기 성공 -> 로비로 돌아가기
                                 String exitRoom = msg.getMessage();
                                 if (exitRoom.equals("SUCCESS")) {
-                                    SwingUtilities.invokeLater(() -> showView(LOBBY_VIEW));
+                                    SwingUtilities.invokeLater(() -> showView(LOBBY_VIEW));           //<<외부 참조>>
                                 }
                                 break;
 
@@ -219,13 +219,13 @@ public class OmokClient extends JFrame {
                                 // 대기실 메시지 처리
                                 if (msg.getMessage().equals("SPECTATOR")) {
                                     // 관전자 모드 설정
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         gamePanel.setSpectatorMode(true);
                                     });
                                 } else if (msg.getUserID().equals("SERVER")) {
                                     // 서버 메시지
                                     String message = msg.getMessage();
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         if (gamePanel != null) {
                                             gamePanel.appendMessage("[서버] " + message);
                                         }
@@ -238,7 +238,7 @@ public class OmokClient extends JFrame {
 
                             case OmokMsg.MODE_GAME_CHAT:
                                 // 게임 중 채팅 메시지
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     if (msg.getUserID().equals("SERVER")) {
                                         gamePanel.appendMessage("[서버] " + msg.getMessage());
                                     } else {
@@ -250,11 +250,11 @@ public class OmokClient extends JFrame {
                             case OmokMsg.MODE_START:
                                 // 게임 시작
                                 if (msg.getMessage().equals("SUCCESS")) {
-                                    SwingUtilities.invokeLater(() -> showView(GAME_VIEW));
+                                    SwingUtilities.invokeLater(() -> showView(GAME_VIEW));                  //<<외부 참조>>
                                 } else {
                                     // 시작 실패 메시지 표시
                                     String errorMsg = msg.getMessage();
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         if (errorMsg.startsWith("FAILED:")) {
                                             String actualMessage = errorMsg.substring(7);
                                             showMessage(waitingRoomPanel, actualMessage, "알림", JOptionPane.WARNING_MESSAGE);
@@ -270,7 +270,7 @@ public class OmokClient extends JFrame {
                                 int x = msg.getX();
                                 int y = msg.getY();
                                 int color = msg.getColor();
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.placeStone(x, y, color);
                                     String colorName = (color == 1) ? "흑돌" : "백돌";
                                     gamePanel.appendMessage(msg.getUserID() + "님이 " + colorName + "을 (" + x + ", " + y + ")에 놓았습니다.");
@@ -282,14 +282,14 @@ public class OmokClient extends JFrame {
                                 int sugX = msg.getX();
                                 int sugY = msg.getY();
                                 int adviceColor = msg.getAdviceColor();
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.showSuggestion(sugX, sugY, msg.getUserID(), adviceColor);
                                 });
                                 break;
 
                             case OmokMsg.MODE_ADVICE_REQUEST_BROADCAST:
                                 // 관전자가 훈수 요청을 받음
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.onAdviceRequested();
                                     gamePanel.appendMessage("[시스템] " + msg.getMessage());
                                 });
@@ -304,7 +304,7 @@ public class OmokClient extends JFrame {
                                     advisors.addAll(Arrays.asList(advisorArray));
                                 }
                                 if (!advisors.isEmpty()) {
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         gamePanel.onAdvisorsListReceived(advisors);
                                     });
                                 }
@@ -312,7 +312,7 @@ public class OmokClient extends JFrame {
 
                             case OmokMsg.MODE_ADVICE_SELECTED:
                                 // 훈수 선택 완료 알림
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.onAdvisorSelected();  // 선택 창 닫기
                                     gamePanel.appendMessage("[시스템] " + msg.getMessage());
                                 });
@@ -320,7 +320,7 @@ public class OmokClient extends JFrame {
 
                             case OmokMsg.MODE_ADVICE_LIMIT_EXCEEDED:
                                 // 훈수 횟수 초과
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.appendMessage("[시스템] " + msg.getMessage());
                                     showMessage(gamePanel, msg.getMessage(), "알림", JOptionPane.WARNING_MESSAGE);
                                 });
@@ -328,14 +328,14 @@ public class OmokClient extends JFrame {
 
                             case OmokMsg.MODE_TURN_CHANGED:
                                 // 턴 변경
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.updateTurn(msg.getMessage());
                                 });
                                 break;
 
                             case OmokMsg.MODE_GAME_OVER:
                                 // 게임 종료
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.gameOver(msg.getMessage());
                                     showMessage(gamePanel, msg.getMessage(), "게임 종료", JOptionPane.INFORMATION_MESSAGE);
                                 });
@@ -354,12 +354,12 @@ public class OmokClient extends JFrame {
                                 color = msg.getColor();
                                 if (color == 3) {
                                     // 관전자 훈수 표시
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         gamePanel.reviewShowSuggestion(x, y, msg.getAdviceColor());
                                     });
                                     break;
                                 }
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.reviewPlaceStone(x, y, color);
                                 });
                                 break;
@@ -371,12 +371,12 @@ public class OmokClient extends JFrame {
                                 color = msg.getColor();
                                 if (color == 3) {
                                     // 관전자 훈수 표시
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         gamePanel.reviewShowSuggestion(x, y, msg.getAdviceColor());
                                     });
                                     break;
                                 }
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.reviewRemoveStone(x, y);
                                 });
                                 break;
@@ -393,7 +393,7 @@ public class OmokClient extends JFrame {
                                 if (playerInfoParts.length >= 2) {
                                     String player1NameWithStats = playerInfoParts[0];
                                     String player2NameWithStats = playerInfoParts[1];
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         gamePanel.updatePlayerNames(player1NameWithStats, player2NameWithStats);
                                     });
                                 }
@@ -402,7 +402,7 @@ public class OmokClient extends JFrame {
                             case OmokMsg.MODE_SPECTATOR_COUNT:
                                 // 관전자 수 업데이트
                                 int spectatorCount = Integer.parseInt(msg.getMessage());
-                                SwingUtilities.invokeLater(() -> {
+                                SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                     gamePanel.updateSpectatorAvailability(spectatorCount > 0);
                                 });
                                 break;
@@ -412,7 +412,7 @@ public class OmokClient extends JFrame {
                                 String statsStr = msg.getMessage();
                                 if (statsStr != null && !statsStr.isEmpty()) {
                                     String[] stats = statsStr.split(",");
-                                    SwingUtilities.invokeLater(() -> {
+                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
                                         lobbyPanel.updateUserStats(stats);
                                     });
                                 }
@@ -480,7 +480,7 @@ public class OmokClient extends JFrame {
 
     // 로비 채팅 영역에 메시지 출력
     private void lobbyDisplay(String message) {
-        SwingUtilities.invokeLater(() -> {
+        SwingUtilities.invokeLater(() -> {                                                  //<<외부 참조>>
             try {
                 if (lobbyPanel == null || lobbyPanel.getChatArea() == null) return;
 
@@ -495,7 +495,7 @@ public class OmokClient extends JFrame {
 
     // 대기실 채팅 영역에 메시지 출력
     private void waitingDisplay(String message) {
-        SwingUtilities.invokeLater(() -> {
+        SwingUtilities.invokeLater(() -> {                                                   //<<외부 참조>>
             try {
                 if (waitingRoomPanel == null || waitingRoomPanel.getChatArea() == null) {
                     return;
@@ -516,7 +516,7 @@ public class OmokClient extends JFrame {
     }
 
     public void showMessage(Component parent, String message, String title, int messageType) {
-        SwingUtilities.invokeLater(() -> {
+        SwingUtilities.invokeLater(() -> {                                                       //<<외부 참조>>
             JOptionPane.showMessageDialog(parent, message, title, messageType);
         });
     }
@@ -1261,7 +1261,7 @@ class GamePanel extends JPanel {
     // 훈수 제공자 목록 업데이트 받음 (플레이어용)
     public void onAdvisorsListReceived(List<String> advisors) {
         if (!advisors.isEmpty()) {
-            SwingUtilities.invokeLater(() -> showAdvisorSelectionDialog(advisors));
+            SwingUtilities.invokeLater(() -> showAdvisorSelectionDialog(advisors));                  //<<외부 참조>>
         }
     }
 
