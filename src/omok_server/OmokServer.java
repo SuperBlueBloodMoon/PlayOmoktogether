@@ -174,7 +174,7 @@ public class OmokServer extends JFrame {
 
     // 서버 로그 출력
     private void printDisplay(String message) {
-        SwingUtilities.invokeLater(() -> {
+        SwingUtilities.invokeLater(() -> {                                                   //<<외부 참조>>
             textArea.append(message + "\n");
             textArea.setCaretPosition(textArea.getDocument().getLength());
         });
