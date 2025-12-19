@@ -1173,13 +1173,20 @@ class GamePanel extends JPanel {
     }
 
     private void updateBackgroundColor() {
+        if (boardPanel == null) return;
+
         if (isSpectator) {
-            boardPanel.setBackground(Color.ORANGE); // 관전자
+            boardPanel.setBackground(new Color(255, 200, 100));
         } else if (playerRole == 1) {
-            boardPanel.setBackground(Color.BLACK); // 흑돌
+            boardPanel.setBackground(new Color(100, 100, 100));
         } else if (playerRole == 2) {
-            boardPanel.setBackground(Color.WHITE); // 백돌
+            boardPanel.setBackground(Color.WHITE); // 흰색
+        } else {
+            boardPanel.setBackground(new Color(238, 238, 238));
         }
+
+        boardPanel.revalidate();
+        boardPanel.repaint();
     }
     // 오목판 클릭 처리
     // ===================================================================
@@ -1268,6 +1275,8 @@ class GamePanel extends JPanel {
         if (isSpectator) {
             requestAdviceButton.setVisible(false);
             offerAdviceButton.setVisible(true);
+            playerRole = 0;
+            updateBackgroundColor();
         } else {
             requestAdviceButton.setVisible(true);
             requestAdviceButton.setEnabled(true);
@@ -1443,6 +1452,9 @@ class GamePanel extends JPanel {
 
     // 게임 패널 초기화
     public void resetGamePanel() {
+        isSpectator = false;
+        playerRole = 0;
+
         omokBoard.reset();
         omokBoard.setEnabled(true);
         messageArea.setText("[시스템] 게임 화면에 입장했습니다.\n");
@@ -1460,18 +1472,11 @@ class GamePanel extends JPanel {
 
         closeAdvisorDialog();
 
-        if (!isSpectator) {
-            requestAdviceButton.setVisible(true);
-            requestAdviceButton.setEnabled(false);
-            offerAdviceButton.setVisible(false);
-            messageArea.setBackground(Color.WHITE);
-        } else {
-            appendMessage("[시스템] 관전자 모드입니다.");
-            surrenderButton.setVisible(false);
-            requestAdviceButton.setVisible(false);
-            offerAdviceButton.setVisible(true);
-            offerAdviceButton.setEnabled(false);
-        }
+        requestAdviceButton.setVisible(true);
+        requestAdviceButton.setEnabled(false);
+        offerAdviceButton.setVisible(false);
+        offerAdviceButton.setEnabled(false);
+        surrenderButton.setVisible(true);
 
         revalidate();
         repaint();
@@ -1479,7 +1484,11 @@ class GamePanel extends JPanel {
 
     public void setPlayerRole(int role) {
         this.playerRole = role;
-        updateBackgroundColor();
+        SwingUtilities.invokeLater(() -> {  //                              <<외부참조>>
+            updateBackgroundColor();
+            revalidate();
+            repaint();
+        });
     }
 
     public boolean isSpectatorMode() {
