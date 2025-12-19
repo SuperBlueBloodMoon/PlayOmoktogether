@@ -391,10 +391,21 @@ public class OmokClient extends JFrame {
                                 String playerInfoStr = msg.getMessage();
                                 String[] playerInfoParts = playerInfoStr.split("\\|");
                                 if (playerInfoParts.length >= 2) {
-                                    String player1NameWithStats = playerInfoParts[0];
-                                    String player2NameWithStats = playerInfoParts[1];
-                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
-                                        gamePanel.updatePlayerNames(player1NameWithStats, player2NameWithStats);
+                                    String player1Name = playerInfoParts[0]; // 흑돌
+                                    String player2Name = playerInfoParts[1]; // 백돌
+
+                                    SwingUtilities.invokeLater(() -> {
+                                        gamePanel.updatePlayerNames(player1Name, player2Name);
+
+                                        if (!gamePanel.isSpectatorMode()) { // 관전자가 아닐 때만 실행
+                                            if (player1Name.contains(uid)) {
+                                                gamePanel.setPlayerRole(1);
+                                            } else if (player2Name.contains(uid)) {
+                                                gamePanel.setPlayerRole(2);
+                                            }
+                                        }else{
+                                            gamePanel.setPlayerRole(0);
+                                        }
                                     });
                                 }
                                 break;
@@ -912,14 +923,17 @@ class GamePanel extends JPanel {
     private OmokClient client;
     private omokBoardView omokBoard;
     private JTextArea messageArea;
+    private JPanel boardPanel;
     private JLabel turnLabel;
     private JLabel player1Label;
     private JLabel player2Label;
+    private int playerRole = 0;
 
     // 게임 버튼
     private JButton reviewButton;      // 복기
     private JButton prevButton;        // 이전 수
     private JButton nextButton;        // 다음 수
+    private JButton surrenderButton;
 
     // 훈수 시스템
     private boolean isSpectator;                        // 관전자 모드 여부
@@ -961,7 +975,7 @@ class GamePanel extends JPanel {
             }
         });
 
-        JPanel boardPanel = new JPanel(new GridBagLayout());
+        boardPanel = new JPanel(new GridBagLayout());
         boardPanel.add(omokBoard);
         add(boardPanel, BorderLayout.CENTER);
     }
@@ -1053,7 +1067,7 @@ class GamePanel extends JPanel {
         JPanel panel = new JPanel(new GridLayout(6, 1, 5, 5));
 
         // 기본 버튼들
-        JButton surrenderButton = new JButton("기권");
+        surrenderButton = new JButton("기권");
         JButton exitButton = new JButton("나가기");
         reviewButton = new JButton("복기");
 
@@ -1158,6 +1172,15 @@ class GamePanel extends JPanel {
         });
     }
 
+    private void updateBackgroundColor() {
+        if (isSpectator) {
+            boardPanel.setBackground(Color.ORANGE); // 관전자
+        } else if (playerRole == 1) {
+            boardPanel.setBackground(Color.BLACK); // 흑돌
+        } else if (playerRole == 2) {
+            boardPanel.setBackground(Color.WHITE); // 백돌
+        }
+    }
     // 오목판 클릭 처리
     // ===================================================================
 
@@ -1243,7 +1266,6 @@ class GamePanel extends JPanel {
         this.isSpectator = isSpectator;
 
         if (isSpectator) {
-            appendMessage("[시스템] 관전자 모드입니다.");
             requestAdviceButton.setVisible(false);
             offerAdviceButton.setVisible(true);
         } else {
@@ -1442,7 +1464,10 @@ class GamePanel extends JPanel {
             requestAdviceButton.setVisible(true);
             requestAdviceButton.setEnabled(false);
             offerAdviceButton.setVisible(false);
+            messageArea.setBackground(Color.WHITE);
         } else {
+            appendMessage("[시스템] 관전자 모드입니다.");
+            surrenderButton.setVisible(false);
             requestAdviceButton.setVisible(false);
             offerAdviceButton.setVisible(true);
             offerAdviceButton.setEnabled(false);
@@ -1450,5 +1475,14 @@ class GamePanel extends JPanel {
 
         revalidate();
         repaint();
+    }
+
+    public void setPlayerRole(int role) {
+        this.playerRole = role;
+        updateBackgroundColor();
+    }
+
+    public boolean isSpectatorMode() {
+        return isSpectator;
     }
 }
