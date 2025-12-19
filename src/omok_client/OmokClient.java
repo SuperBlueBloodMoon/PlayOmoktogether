@@ -1121,6 +1121,7 @@ class GamePanel extends JPanel {
                 client.setCurrentIndex(-1);
                 client.setEndIndex(0);
                 resetGamePanel();
+                isSpectator = false;
             }
         });
 
@@ -1486,7 +1487,6 @@ class GamePanel extends JPanel {
             offerAdviceButton.setVisible(true);
             offerAdviceButton.setEnabled(false);
         }
-
         revalidate();
         repaint();
     }
