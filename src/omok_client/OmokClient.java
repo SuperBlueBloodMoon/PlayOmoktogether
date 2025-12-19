@@ -219,13 +219,14 @@ public class OmokClient extends JFrame {
                                 // 대기실 메시지 처리
                                 if (msg.getMessage().equals("SPECTATOR")) {
                                     // 관전자 모드 설정
-                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
+                                    SwingUtilities.invokeLater(() -> {
                                         gamePanel.setSpectatorMode(true);
+                                        gamePanel.appendMessage("[시스템] 관전자 모드입니다.");
                                     });
                                 } else if (msg.getUserID().equals("SERVER")) {
                                     // 서버 메시지
                                     String message = msg.getMessage();
-                                    SwingUtilities.invokeLater(() -> {                  //<<외부 참조>>
+                                    SwingUtilities.invokeLater(() -> {
                                         if (gamePanel != null) {
                                             gamePanel.appendMessage("[서버] " + message);
                                         }
@@ -1276,11 +1277,13 @@ class GamePanel extends JPanel {
             requestAdviceButton.setVisible(false);
             offerAdviceButton.setVisible(true);
             playerRole = 0;
+            surrenderButton.setVisible(false);
             updateBackgroundColor();
         } else {
             requestAdviceButton.setVisible(true);
             requestAdviceButton.setEnabled(true);
             offerAdviceButton.setVisible(false);
+            surrenderButton.setVisible(true);
         }
     }
 
@@ -1452,7 +1455,7 @@ class GamePanel extends JPanel {
 
     // 게임 패널 초기화
     public void resetGamePanel() {
-        isSpectator = false;
+
         playerRole = 0;
 
         omokBoard.reset();
@@ -1472,11 +1475,17 @@ class GamePanel extends JPanel {
 
         closeAdvisorDialog();
 
-        requestAdviceButton.setVisible(true);
-        requestAdviceButton.setEnabled(false);
-        offerAdviceButton.setVisible(false);
-        offerAdviceButton.setEnabled(false);
-        surrenderButton.setVisible(true);
+        if (!isSpectator) {
+            requestAdviceButton.setVisible(true);
+            requestAdviceButton.setEnabled(false);
+            offerAdviceButton.setVisible(false);
+        } else {
+            appendMessage("[시스템] 관전자 모드입니다.");
+            surrenderButton.setVisible(false);
+            requestAdviceButton.setVisible(false);
+            offerAdviceButton.setVisible(true);
+            offerAdviceButton.setEnabled(false);
+        }
 
         revalidate();
         repaint();
